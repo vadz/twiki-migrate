@@ -55,7 +55,7 @@ grammar TWiki::Grammar {
     token paragraph {
         (
             || <header>
-            || <signature>
+            || <.signature>
             || <table>
             || <.attachment>
             || <.ignored-meta>
@@ -101,8 +101,12 @@ grammar TWiki::Grammar {
         \N+
     }
 
-    rule signature {
-        ^^ '--' Main.$<author-in-signature>=[\w+] '-' \d ** 1..2 \w ** 3 \d ** 4
+    token signature {
+        ^^ '-- Main.'
+        [
+            || $<author-in-signature>=[\w+] ' - ' \d ** 1..2 ' ' \w ** 3 ' ' \d ** 4
+            || { die "Incorrect signature line syntax at { $/.pos() }" }
+        ]
     }
 
     token attachment {
