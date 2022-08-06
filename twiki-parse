@@ -226,9 +226,16 @@ class TWiki::Actions {
     has $.file;
 
     method TOP($/) {
+        # Get rid of paragraphs without any corresponding AST node.
+        my @paragraphs;
+        for $/<paragraph> {
+            my $paragraph = $_.ast;
+            @paragraphs.push($paragraph) if $paragraph;
+        }
+
         make TWiki::Page.new(
             metainfo => $<metainfo>.ast,
-            body     => $<paragraph>».ast,
+            body     => @paragraphs,
         );
     }
 
