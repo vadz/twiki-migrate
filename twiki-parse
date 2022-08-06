@@ -118,6 +118,11 @@ grammar TWiki::Grammar {
                 || 'Created ' <.signature-date> ' - ' [ 'Updated ' || 'Last modified ' ]
             ]?
             [ <.signature-date> || <.signature-date-ISO> ]
+            [
+                || ' <br/>'
+                || ' -- Main.' \N+
+                || ' - ' \N+
+            ]?
             || { die "Incorrect signature line syntax at { $/.pos() }" }
         ]
     }
