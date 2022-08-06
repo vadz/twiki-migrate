@@ -49,7 +49,7 @@ grammar TWiki::Grammar {
     }
 
     token metavar {
-        $<name>=[\w+] '="' ~ '"' $<value>=[<[ a..z A..Z 0..9 . _ \ ]>*]
+        $<name>=[\w+] '="' ~ '"' $<value>=[<-["]>*]
     }
 
     token paragraph {
