@@ -1,0 +1,326 @@
+#!/usr/bin/env raku
+
+# use Grammar::Tracer;
+
+sub get-twiki-author(Str $author) {
+    given $author {
+        when /^[ $<first>=(<[A..Z]> <[a..z]>+) $<last>=(<[A..Z]> <[A..Z a..z]>+) ]$/ {
+            ~$/<first> ~ ' ' ~ ~$/<last>.tclc
+        }
+
+        when /^[ TWiki\w+ | BaseUserMapping_\d+ ]$/ {
+            'TWiki Pseudo User'
+        }
+
+        default {
+            note "Unexpected page author: { $author }";
+            $author
+        }
+    }
+}
+
+sub get-title-from-twiki-file(Str $file) {
+    $file.IO
+        .basename
+        .subst(/'.txt' $/)
+        .subst(/(<[a..z]>) (<[A..Z]>)/, { "$0 $1" }, :g)
+}
+
+grammar TWiki::Grammar {
+    token TOP {
+        <metainfo>
+
+        \n*
+
+        <paragraph>*
+    }
+
+    token metainfo {
+        <topic-info>
+        <topic-parent>?
+    }
+
+    token topic-info {
+        ^^ '%META:TOPICINFO{' <metavar>+ % ' ' '}%' \n
+    }
+
+    token topic-parent {
+        ^^ '%META:TOPICPARENT{' <metavar> '}%' \n
+    }
+
+    token metavar {
+        $<name>=[\w+] '="' ~ '"' $<value>=[<[ a..z A..Z 0..9 . _ ]>+]
+    }
+
+    token paragraph {
+        (
+            || <header>
+            || <signature>
+            || <table>
+            || <.ignored-meta>
+            || <normal-paragraph>
+        )
+
+        [ \n+ || $ ]
+    }
+
+    token header {
+        ^^ '---'
+        [
+            || $<level>=['+' ** 1..5] ' ' <text-span>?
+            || { die "Incorrect header syntax near position { $/.pos() + 5 }" }
+        ]
+    }
+
+    token table {
+        ^^ '|'
+        [
+            || [ <header-row> | <table-row> ] \n
+               [ '|' <table-row> ]* % \n
+            || { die "Incorrect table syntax near position { $/.pos() + 3 }" }
+        ]
+    }
+
+    token header-row {
+        <header-cell>+ %% '|'
+    }
+
+    token header-cell {
+        [
+            || ' '+ '*' $<value>=<-[*]>+ '*' ' '*
+            || ' '*
+        ]
+    }
+
+    token table-row {
+        ' '* [ $<cell>=<-[|\n]>* '|' ]+ ' '*
+    }
+
+    token text-span {
+        \N+
+    }
+
+    rule signature {
+        ^^ '--' Main.$<author-in-signature>=[\w+] '-' \d ** 1..2 \w ** 3 \d ** 4
+    }
+
+    token ignored-meta {
+        ^^ '%META:'
+        [
+            || [ FORM || FIELD || PREFERENCE ] '{'  \N+? '}%'
+            || { die "Incorrect %META syntax near position { $/.pos() + 5 }" }
+        ]
+    }
+
+    token normal-paragraph {
+        <.line>+ %% \n
+    }
+
+    token line {
+        ^^ <.text-span>
+    }
+}
+
+class TWiki::Metainfo {
+    has $.file;
+    has $.author;
+    has Instant $.date;
+    has $.parent;
+
+    method to-adoc() {
+        qq:to/END/;
+        = { get-title-from-twiki-file($.file) }
+        :author: $.author
+        :revdate: { $.date.DateTime }
+        END
+    }
+}
+
+class TWiki::Header {
+    has Int $.level;
+    has Str $.text;
+
+    method to-adoc() {
+        '=' x ($.level + 1) ~ ' ' ~ $.text ~ "\n"
+    }
+}
+
+class TWiki::TableRow {
+    has Str @.cells;
+
+    method to-adoc() {
+        '|' ~ join '|', @.cells
+    }
+}
+
+class TWiki::Table {
+    has Str @.headers;
+    has @.rows;
+
+    method to-adoc() {
+        my ($num-columns, $headers-attr, $headers-row);
+        if @.headers {
+            $num-columns = @.headers.elems;
+            $headers-attr = '%header,';
+            $headers-row = '|' ~ join('|', @.headers) ~ "\n";
+        } else {
+            $num-columns = @.rows[0].elems;
+            $headers-attr = '';
+            $headers-row = '';
+        }
+
+        qq:to/END/;
+        [cols="{ $headers-attr }{ join ',', '1' xx $num-columns }"]
+        |===
+        { $headers-row }{ join "\n", @.rows».to-adoc }
+        |===
+        END
+    }
+}
+
+class TWiki::Paragraph {
+    has Str $.text;
+
+    method to-adoc() {
+        # FIXME-VZ: inline markup
+        $.text
+    }
+}
+
+class TWiki::Page {
+    has TWiki::Metainfo $.metainfo;
+    has @.body;
+
+    method to-adoc() {
+        join "\n", $.metainfo.to-adoc, @.body».to-adoc
+    }
+}
+
+class TWiki::Actions {
+    has $.file;
+
+    method TOP($/) {
+        make TWiki::Page.new(
+            metainfo => $<metainfo>.ast,
+            body     => $<paragraph>».ast,
+        );
+    }
+
+    method metainfo($/) {
+        my $info = $/<topic-info>.ast;
+        my $parent = $/<topic-parent>;
+        make TWiki::Metainfo.new(
+            file   => $.file,
+            author => $info<author>,
+            date   => $info<date>,
+            parent => $parent ?? ~$parent.ast !! Nil,
+        );
+    }
+
+    method topic-info($/) {
+        my $author;
+        my $date;
+        for $/<metavar> {
+            my $var = $_.ast;
+            given $var.key {
+                when 'author' { $author = get-twiki-author($var.value) }
+                when 'date' { $date = Instant.from-posix: $var.value }
+                when 'format' | 'version' | 'reprev' { }
+                default { note "In $.file: unknown metavar { $var.key } = { $var.value }" }
+            }
+        }
+
+        die "Required author metavar not found."
+            unless defined($author);
+        die "Required date metavar not found."
+            unless defined($date);
+
+        make { author => $author, date => $date }
+    }
+
+    method topic-parent($/) {
+        my $parent = $/<metavar>;
+        die "Found $parent<name> instead of the expected name attribute in META:TOPICPARENT."
+            unless $parent<name> eq 'name';
+
+        make $parent<value>;
+    }
+
+    method metavar($/) {
+        make ~$/<name> => ~$/<value>;
+    }
+
+    method paragraph($/) {
+        make $/[0].hash.values».ast;
+    }
+
+    method header($/) {
+        # Header may not have any text, making it rather useless, so skip it.
+        my $text = $/<text-span>;
+        return unless $text;
+
+        make TWiki::Header.new(
+            level => $/<level>.chars,
+            text  => ~$text
+        );
+    }
+
+    method header-row($/) {
+        make $/<header-cell>».ast;
+    }
+
+    method header-cell($/) {
+        # There are some empty header cells too.
+        my $text = $/<value>;
+        make $text ?? ~$text !! '';
+    }
+
+    method table-row($/) {
+        make TWiki::TableRow.new(
+            cells => $/<cell>».Str
+        );
+    }
+
+    method table($/) {
+        make TWiki::Table.new(
+            headers => defined($/<header-row>) ?? $/<header-row>.ast !! [],
+            rows    => $/<table-row>».ast
+        );
+    }
+
+    method normal-paragraph($/) {
+        make TWiki::Paragraph.new(
+            text => ~$/
+        );
+    }
+}
+
+sub MAIN(*@twiki-files, Bool :$debug) {
+    # Process command-line arguments and read the input files.
+    sub log-debug($msg) {
+        note $msg if $debug;
+    }
+
+    my $rc = 0;
+    for @twiki-files -> $twiki-file {
+        my $input = $twiki-file.IO.slurp;
+
+        CATCH {
+            default {
+                note "Error while parsing $twiki-file: $_.";
+                $rc = 2;
+            }
+        }
+
+        my $actions = TWiki::Actions.new(file => $twiki-file);
+        my $result = TWiki::Grammar.parse($input, :actions($actions)).ast;
+        if ! $result {
+            note "Failed to parse $twiki-file as TWiki page.";
+            $rc //= 1;
+        } else {
+            log-debug $result.to-adoc;
+        }
+    }
+
+    exit $rc
+}
