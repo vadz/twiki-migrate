@@ -49,7 +49,7 @@ grammar TWiki::Grammar {
     }
 
     token metavar {
-        $<name>=[\w+] '="' ~ '"' $<value>=[<[ a..z A..Z 0..9 . _ ]>+]
+        $<name>=[\w+] '="' ~ '"' $<value>=[<[ a..z A..Z 0..9 . _ \ ]>*]
     }
 
     token paragraph {
@@ -57,6 +57,7 @@ grammar TWiki::Grammar {
             || <header>
             || <signature>
             || <table>
+            || <.attachment>
             || <.ignored-meta>
             || <normal-paragraph>
         )
@@ -104,11 +105,19 @@ grammar TWiki::Grammar {
         ^^ '--' Main.$<author-in-signature>=[\w+] '-' \d ** 1..2 \w ** 3 \d ** 4
     }
 
+    token attachment {
+        ^^ '%META:FILEATTACHMENT{'
+        [
+            || <metavar>+ % ' ' '}%'
+            || { die "Incorrect FILEATTACHMENT syntax near position { $/.pos() + 3 }" }
+        ]
+    }
+
     token ignored-meta {
         ^^ '%META:'
         [
             || [ FORM || FIELD || PREFERENCE ] '{'  \N+? '}%'
-            || { die "Incorrect %META syntax near position { $/.pos() + 5 }" }
+            || { die "Unknown %META directive near position { $/.pos() + 5 }" }
         ]
     }
 
