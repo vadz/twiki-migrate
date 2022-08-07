@@ -1,0 +1,9 @@
+TWiki Migration Tools
+=====================
+
+There is currently just a very simple and incomplete script converting TWiki
+markup to AsciiDoc.
+
+The script is just a single file when it really should have consisted of a
+parser module and another one generating AsciiDoc, but even so, it should be
+simple enough to add conversion to another format, e.g. Markdown, to it.
