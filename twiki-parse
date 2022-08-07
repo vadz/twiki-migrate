@@ -80,16 +80,22 @@ grammar TWiki::Grammar {
         ]
     }
 
+    # This is only good for non-nested tags, of course, but, luckily, this is
+    # mostly the case.
+    token html-tag(Str $tag) {
+        "<$tag" .+? "</$tag>"
+    }
+
+    token html-comment {
+        '<!--' .+? '->'
+    }
+
     token html-fragment {
-        ^^ <html-table> <.ws> <html-div>?
-    }
-
-    token html-table {
-        '<table' .+? '</table>'
-    }
-
-    token html-div {
-        '<div ' .+? '</div>'
+        ^^
+        [
+            || <html-tag: 'table'> <.ws> <html-tag: 'div'>?
+            || [ <html-tag: 'div'> <.ws> ]+ <.html-comment>?
+        ]
     }
 
     token table {
