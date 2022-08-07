@@ -58,6 +58,7 @@ grammar TWiki::Grammar {
             # the same way.
             || [ <separator> | <header> ]
             || <.signature>
+            || <list>
             || <html-fragment>
             || <table>
             || <.attachment>
@@ -78,6 +79,47 @@ grammar TWiki::Grammar {
             || $<level>=['+' ** 1..5] ' '? <text-span>?
             || { die "Incorrect header syntax near position { $/.pos() + 5 }" }
         ]
+    }
+
+    token list {
+        ^^ $<indent>=['   ' ** 1..*] <!before ' '>
+        (
+            <list-item>
+            [\n $<indent> <list-item>]+
+        )
+    }
+
+    token list-item {
+        (
+            || <list-bullet>
+            || <list-numbered>
+            || <list-def>
+            || { die "Incorrect list item syntax near position { $/.pos() + 3 }" }
+        )
+    }
+
+    # List item text can wrap on the following line if it starts by 3 spaces,
+    # but we shouldn't match the following item here.
+    token list-text {
+        \N+ [ \n '   ' <-[* 1..9 A a $]> \N+ ]*
+    }
+
+    token list-bullet {
+        # There are some (useless) empty list items in the existing pages, so
+        # allow them.
+        '* ' <list-text>?
+    }
+
+    token list-numbered {
+        # Period is supposed to be mandatory here but in practice can be (and
+        # is) omitted. OTOH we don't support Roman numerals of numbering nor
+        # any other Latin letters because this is not used in the existing
+        # pages.
+        <[1..9 A a]> '.'? ' ' <list-text>
+    }
+
+    token list-def {
+        '$ ' $<name>=<-[:\n]>+ ': ' $<text>=<.list-text>
     }
 
     # This is only good for non-nested tags, of course, but, luckily, this is
@@ -192,6 +234,31 @@ class TWiki::Metainfo {
         :author: $.author
         :revdate: { $.date.DateTime }
         END
+    }
+}
+
+class TWiki::BulletList {
+    has $.text;
+
+    method to-adoc() {
+        "* $.text"
+    }
+}
+
+class TWiki::NumberedList {
+    has $.text;
+
+    method to-adoc() {
+        ". $.text"
+    }
+}
+
+class TWiki::DefList {
+    has $.name;
+    has $.text;
+
+    method to-adoc() {
+        "{$.name}:: $.text"
     }
 }
 
@@ -357,6 +424,29 @@ class TWiki::Actions {
 
     method separator($/) {
         make TWiki::Separator.new;
+    }
+
+    method list-item($/) {
+        make $/[0].hash.values».ast;
+    }
+
+    method list-bullet($/) {
+        make TWiki::BulletList.new(
+            text => ~$<list-text>
+        );
+    }
+
+    method list-numbered($/) {
+        make TWiki::NumberedList.new(
+            text => ~$<list-text>
+        );
+    }
+
+    method list-def($/) {
+        make TWiki::DefList.new(
+            name => ~$<name>,
+            text => ~$<text>,
+        );
     }
 
     method html-fragment($/) {
