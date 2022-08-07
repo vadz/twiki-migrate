@@ -58,6 +58,7 @@ grammar TWiki::Grammar {
             # the same way.
             || [ <separator> | <header> ]
             || <.signature>
+            || <block-image>
             || <list>
             || <html-fragment>
             || <table>
@@ -79,6 +80,17 @@ grammar TWiki::Grammar {
             || $<level>=['+' ** 1..5] ' '? <text-span>?
             || { die "Incorrect header syntax near position { $/.pos() + 5 }" }
         ]
+    }
+
+    token attribute {
+        # This definition of value doesn't allow using quotes of the other
+        # kind inside the attribute value, which is allowed in theory, but is
+        # not needed in practice, and it's much simpler to forbid it.
+        $<name>=[\w+] '=' $<quote>=<['"]> ~ $<quote> $<value>=<-['"]>+
+    }
+
+    token block-image {
+        ^^ <.ws> '<img ' ~ ' />' [ <attribute>+ % ' ' ]
     }
 
     token list {
@@ -234,6 +246,22 @@ class TWiki::Metainfo {
         :author: $.author
         :revdate: { $.date.DateTime }
         END
+    }
+}
+
+class TWiki::Image {
+    has $.src;
+    has $.alt;
+    has $.width;
+    has $.height;
+
+    method to-adoc() {
+        my $extra_attrs = '';
+        if $.width || $.height {
+            $extra_attrs = ",$.width,$.height"
+        }
+
+        "image::{$.src}[{$.alt}{$extra_attrs}]"
     }
 }
 
@@ -424,6 +452,19 @@ class TWiki::Actions {
 
     method separator($/) {
         make TWiki::Separator.new;
+    }
+
+    method attribute($/) {
+        make ~$/<name> => ~$/<value>;
+    }
+
+    method block-image($/) {
+        my %attributes;
+        %attributes.append: $<attribute>.list».ast;
+
+        make TWiki::Image.new(
+            | %attributes
+        );
     }
 
     method list-item($/) {
