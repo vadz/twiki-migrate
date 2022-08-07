@@ -81,7 +81,15 @@ grammar TWiki::Grammar {
     }
 
     token html-fragment {
-        ^^ '<table' .+? '</table>'
+        ^^ <html-table> <.ws> <html-div>?
+    }
+
+    token html-table {
+        '<table' .+? '</table>'
+    }
+
+    token html-div {
+        '<div ' .+? '</div>'
     }
 
     token table {
