@@ -54,7 +54,9 @@ grammar TWiki::Grammar {
 
     token paragraph {
         (
-            || <header>
+            # We have to use "|" here because separators and headers start in
+            # the same way.
+            || [ <separator> | <header> ]
             || <.signature>
             || <table>
             || <.attachment>
@@ -63,6 +65,10 @@ grammar TWiki::Grammar {
         )
 
         [ \n+ || $ ]
+    }
+
+    token separator {
+        ^^ '-' ** 3..*
     }
 
     token header {
@@ -138,7 +144,7 @@ grammar TWiki::Grammar {
     token ignored-meta {
         ^^ '%META:'
         [
-            || [ FORM || FIELD || PREFERENCE ] '{'  \N+? '}%'
+            || [ FORM || FIELD || PREFERENCE || TOPICMOVED ] '{'  \N+? '}%'
             || { die "Unknown %META directive near position { $/.pos() + 5 }" }
         ]
     }
@@ -163,6 +169,16 @@ class TWiki::Metainfo {
         = { get-title-from-twiki-file($.file) }
         :author: $.author
         :revdate: { $.date.DateTime }
+        END
+    }
+}
+
+class TWiki::Separator {
+    method to-adoc() {
+        qq:to/END/;
+        ++++
+        <hr>
+        ++++
         END
     }
 }
@@ -290,6 +306,10 @@ class TWiki::Actions {
 
     method paragraph($/) {
         make $/[0].hash.values».ast;
+    }
+
+    method separator($/) {
+        make TWiki::Separator.new;
     }
 
     method header($/) {
