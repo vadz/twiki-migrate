@@ -58,6 +58,7 @@ grammar TWiki::Grammar {
             # the same way.
             || [ <separator> | <header> ]
             || <.signature>
+            || <html-fragment>
             || <table>
             || <.attachment>
             || <.ignored-meta>
@@ -77,6 +78,10 @@ grammar TWiki::Grammar {
             || $<level>=['+' ** 1..5] ' '? <text-span>?
             || { die "Incorrect header syntax near position { $/.pos() + 5 }" }
         ]
+    }
+
+    token html-fragment {
+        ^^ '<table' .+? '</table>'
     }
 
     token table {
@@ -175,13 +180,21 @@ class TWiki::Metainfo {
     }
 }
 
-class TWiki::Separator {
+class TWiki::HTMLFragment {
+    has $.html is rw;
+
     method to-adoc() {
         qq:to/END/;
         ++++
-        <hr>
+        $.html
         ++++
         END
+    }
+}
+
+class TWiki::Separator is TWiki::HTMLFragment {
+    submethod TWEAK {
+        self.html = '<hr>';
     }
 }
 
@@ -312,6 +325,12 @@ class TWiki::Actions {
 
     method separator($/) {
         make TWiki::Separator.new;
+    }
+
+    method html-fragment($/) {
+        make TWiki::HTMLFragment.new(
+            html => ~$/
+        );
     }
 
     method header($/) {
