@@ -19,10 +19,14 @@ sub get-twiki-author(Str $author) {
     }
 }
 
-sub get-title-from-twiki-file(Str $file) {
+sub get-name-from-twiki-file(Str $file) {
     $file.IO
         .basename
         .subst(/'.txt' $/)
+}
+
+sub get-title-from-twiki-file(Str $file) {
+    get-name-from-twiki-file($file)
         .subst(/(<[a..z]>) (<[A..Z]>)/, { "$0 $1" }, :g)
 }
 
@@ -537,10 +541,14 @@ class TWiki::Actions {
     }
 }
 
-sub MAIN(*@twiki-files, Bool :$debug) {
+sub MAIN(*@twiki-files, Str :$out-dir, Bool :$debug) {
     # Process command-line arguments and read the input files.
     sub log-debug($msg) {
         note $msg if $debug;
+    }
+
+    if $out-dir {
+        $out-dir.IO.mkdir;
     }
 
     my $rc = 0;
@@ -560,7 +568,13 @@ sub MAIN(*@twiki-files, Bool :$debug) {
             note "Failed to parse $twiki-file as TWiki page.";
             $rc //= 1;
         } else {
-            log-debug $result.to-adoc;
+            log-debug $result;
+
+            if $out-dir {
+                $out-dir.IO.add(
+                    get-name-from-twiki-file($twiki-file) ~ '.adoc'
+                ).spurt: $result.to-adoc
+            }
         }
     }
 
