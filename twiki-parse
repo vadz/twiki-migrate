@@ -82,7 +82,7 @@ grammar TWiki::Grammar {
     token table {
         ^^ '|'
         [
-            || [ <header-row> | <table-row> ] \n
+            || [ <header-row> || <table-row> ] \n
                [ '|' <table-row> ]* % \n
             || { die "Incorrect table syntax near position { $/.pos() + 3 }" }
         ]
