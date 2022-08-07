@@ -88,19 +88,21 @@ grammar TWiki::Grammar {
         ]
     }
 
+    # Redefine the default ws to _not_ include vertical whitespace such as \n.
+    token ws {
+        \h*
+    }
+
     token header-row {
-        <header-cell>+ %% '|'
+        [ <.ws> <header-cell>? '|' ]+ <.ws>
     }
 
     token header-cell {
-        [
-            || ' '+ '*' $<value>=<-[*]>+ '*' ' '*
-            || ' '*
-        ]
+        '*' $<value>=<-[*|\n]>+ '*' <.ws>
     }
 
     token table-row {
-        ' '* [ $<cell>=<-[|\n]>* '|' ]+ ' '*
+        <.ws> [ $<cell>=<-[|\n]>* '|' ]+ <.ws>
     }
 
     token text-span {
