@@ -274,8 +274,25 @@ class TWiki::Actions {
         # Get rid of paragraphs without any corresponding AST node.
         my @paragraphs;
         for $/<paragraph> {
-            my $paragraph = $_.ast;
-            @paragraphs.push($paragraph) if $paragraph;
+            my $ast = $_.ast;
+
+            # Somehow we end up with lists containing a single element and not
+            # just the element itself here.
+            if $ast.elems > 1 {
+                note "Unexpected AST structure when parsing $.file: { $ast.perl }";
+                next
+            }
+
+            # We also may have an empty list, but this is fine, just skip it.
+            next unless $ast.elems;
+
+            my $value = $ast[0];
+
+            # Some AST nodes don't have any value associated with them, this
+            # is fine too, just skip them.
+            next unless defined $value;
+
+            @paragraphs.push($value);
         }
 
         make TWiki::Page.new(
