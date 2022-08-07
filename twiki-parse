@@ -73,7 +73,7 @@ grammar TWiki::Grammar {
     }
 
     token header {
-        ^^ '---'
+        ^^ '-' ** 3..4
         [
             || $<level>=['+' ** 1..5] ' '? <text-span>?
             || { die "Incorrect header syntax near position { $/.pos() + 5 }" }
