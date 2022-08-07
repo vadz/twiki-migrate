@@ -136,6 +136,7 @@ grammar TWiki::Grammar {
                 || ' -- Main.' \N+
                 || ' - ' \N+
             ]?
+            <.ws>
             || { die "Incorrect signature line syntax at { $/.pos() }" }
         ]
     }
