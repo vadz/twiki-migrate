@@ -390,10 +390,10 @@ class TWiki::Separator is TWiki::HTMLFragment {
 
 class TWiki::Header {
     has Int $.level;
-    has Str $.text;
+    has $.text;
 
     method to-adoc() {
-        '=' x ($.level + 1) ~ ' ' ~ $.text ~ "\n"
+        '=' x ($.level + 1) ~ ' ' ~ $.text.to-adoc ~ "\n"
     }
 }
 
@@ -611,7 +611,9 @@ class TWiki::Actions {
 
         make TWiki::Header.new(
             level => $/<level>.chars,
-            text  => ~$text
+            text  => TWiki::Text.new(
+                elements => $text.ast
+            )
         );
     }
 
