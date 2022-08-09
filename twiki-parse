@@ -566,7 +566,7 @@ sub MAIN(*@twiki-files, Str :$out-dir, Bool :$debug) {
         my $result = TWiki::Grammar.parse($input, :actions($actions)).ast;
         if ! $result {
             note "Failed to parse $twiki-file as TWiki page.";
-            $rc //= 1;
+            $rc = 1;
         } else {
             log-debug $result;
 
