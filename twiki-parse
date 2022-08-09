@@ -121,7 +121,7 @@ grammar TWiki::Grammar {
     # List item text can wrap on the following line if it starts by 3 spaces,
     # but we shouldn't match the following item here.
     token list-text {
-        <.text-span> [ \n <.list-indent> <-[* 1..9 A a $]> <.text-span>+ ]*
+        <text-span> [ \n <.list-indent> <-[* 1..9 A a $]> <text-span>+ ]*
     }
 
     token list-bullet {
@@ -341,9 +341,10 @@ class TWiki::BulletListItem {
     has $.text;
 
     method to-adoc() {
-        # A lone "*" isn't recognized as a list item, so ensure that we always
-        # use a non-empty text.
-        "* { $.text || '&nbsp;'}"
+        # As mentioned in the grammar, there are some empty lists, accept them
+        # without complaining and, as a lone "*" isn't recognized as a list
+        # item, ensure that we always use a non-empty text.
+        "* { $.text ?? $.text.to-adoc !! '&nbsp;' }"
     }
 }
 
@@ -351,7 +352,7 @@ class TWiki::NumberedListItem {
     has $.text;
 
     method to-adoc() {
-        ". $.text"
+        ". { $.text.to-adoc }"
     }
 }
 
@@ -360,7 +361,7 @@ class TWiki::DefListItem {
     has $.text;
 
     method to-adoc() {
-        "{$.name}:: $.text"
+        "{$.name}:: { $.text.to-adoc }"
     }
 }
 
@@ -368,7 +369,7 @@ class TWiki::List {
     has @.items;
 
     method to-adoc() {
-        join("\n", @.items».to-adoc) ~ "\n"
+        @.items».to-adoc.join ~ "\n"
     }
 }
 
@@ -578,18 +579,21 @@ class TWiki::Actions {
         make $/[0].hash.values[0].ast;
     }
 
+    method list-text($/) {
+        make TWiki::Text.new(
+            elements => $<text-span>[0].ast
+        )
+    }
+
     method list-bullet($/) {
-        # As mentioned in the grammar, there are some empty lists, accept them
-        # without complaining.
-        my $text = $<list-text> // '';
         make TWiki::BulletListItem.new(
-            text => ~$text
+            text => $<list-text>.ast
         );
     }
 
     method list-numbered($/) {
         make TWiki::NumberedListItem.new(
-            text => ~$<list-text>
+            text => $<list-text>.ast
         );
     }
 
