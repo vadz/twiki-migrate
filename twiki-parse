@@ -310,7 +310,7 @@ class TWiki::Image {
     }
 }
 
-class TWiki::BulletList {
+class TWiki::BulletListItem {
     has $.text;
 
     method to-adoc() {
@@ -318,7 +318,7 @@ class TWiki::BulletList {
     }
 }
 
-class TWiki::NumberedList {
+class TWiki::NumberedListItem {
     has $.text;
 
     method to-adoc() {
@@ -326,7 +326,7 @@ class TWiki::NumberedList {
     }
 }
 
-class TWiki::DefList {
+class TWiki::DefListItem {
     has $.name;
     has $.text;
 
@@ -526,19 +526,19 @@ class TWiki::Actions {
     }
 
     method list-bullet($/) {
-        make TWiki::BulletList.new(
+        make TWiki::BulletListItem.new(
             text => ~$<list-text>
         );
     }
 
     method list-numbered($/) {
-        make TWiki::NumberedList.new(
+        make TWiki::NumberedListItem.new(
             text => ~$<list-text>
         );
     }
 
     method list-def($/) {
-        make TWiki::DefList.new(
+        make TWiki::DefListItem.new(
             name => ~$<name>,
             text => ~$<text>,
         );
