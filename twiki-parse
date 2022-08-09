@@ -316,7 +316,9 @@ class TWiki::BulletListItem {
     has $.text;
 
     method to-adoc() {
-        "* $.text"
+        # A lone "*" isn't recognized as a list item, so ensure that we always
+        # use a non-empty text.
+        "* { $.text || '&nbsp;'}"
     }
 }
 
@@ -544,8 +546,11 @@ class TWiki::Actions {
     }
 
     method list-bullet($/) {
+        # As mentioned in the grammar, there are some empty lists, accept them
+        # without complaining.
+        my $text = $<list-text> // '';
         make TWiki::BulletListItem.new(
-            text => ~$<list-text>
+            text => ~$text
         );
     }
 
