@@ -188,6 +188,7 @@ grammar TWiki::Grammar {
     token text-span {
         (
             || <verbatim>
+            || <nop>
             || <plain-text>
         )+
     }
@@ -200,6 +201,10 @@ grammar TWiki::Grammar {
 
     token verbatim {
         <capture-tag: 'verbatim'>
+    }
+
+    token nop {
+        '<nop>'
     }
 
     # TODO: exclude all markup characters: *_=<![
@@ -282,6 +287,12 @@ class TWiki::Verbatim {
         $.text
         ....
         END
+    }
+}
+
+class TWiki::Ignored {
+    method to-adoc() {
+        ''
     }
 }
 
@@ -519,6 +530,10 @@ class TWiki::Actions {
         make TWiki::Verbatim.new(
             text => ~$<capture-tag><contents>
         );
+    }
+
+    method nop($/) {
+        make TWiki::Ignored.new();
     }
 
     method plain-text($/) {
