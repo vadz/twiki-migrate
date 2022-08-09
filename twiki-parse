@@ -183,7 +183,25 @@ grammar TWiki::Grammar {
     }
 
     token text-span {
-        \N+
+        (
+            || <verbatim>
+            || <plain-text>
+        )+
+    }
+
+    # This is almost like html-tag but is used for TWiki-specific tags too and
+    # captures its contents (and doesn't allow attributes for the opening tag).
+    token capture-tag(Str $tag) {
+        "<$tag>" \n* $<contents>=.+? \n? "</$tag>" \h*
+    }
+
+    token verbatim {
+        <capture-tag: 'verbatim'>
+    }
+
+    # TODO: exclude all markup characters: *_=<![
+    token plain-text {
+        <-[\n]>+
     }
 
     token signature-date {
@@ -230,11 +248,7 @@ grammar TWiki::Grammar {
     }
 
     token normal-paragraph {
-        <.line>+ %% \n
-    }
-
-    token line {
-        ^^ <.text-span>
+        [^^ <text-span>]+ %% \n
     }
 }
 
@@ -250,6 +264,29 @@ class TWiki::Metainfo {
         :author: $.author
         :revdate: { $.date.DateTime }
         END
+    }
+}
+
+class TWiki::Verbatim {
+    has $.text;
+
+    method to-adoc() {
+        # Always insert a new line before the start of a block, but don't add
+        # extra new lines otherwise, as the text already (may) contain(s) them.
+        qq:to/END/;
+
+        ....
+        $.text
+        ....
+        END
+    }
+}
+
+class TWiki::PlainText {
+    has $.text;
+
+    method to-adoc() {
+        $.text
     }
 }
 
@@ -355,11 +392,10 @@ class TWiki::Table {
 }
 
 class TWiki::Paragraph {
-    has Str $.text;
+    has @.elements;
 
     method to-adoc() {
-        # FIXME-VZ: inline markup
-        $.text
+        $.elements».to-adoc.join("\n") ~ "\n"
     }
 }
 
@@ -462,6 +498,18 @@ class TWiki::Actions {
         make ~$/<name> => ~$/<value>;
     }
 
+    method verbatim($/) {
+        make TWiki::Verbatim.new(
+            text => ~$<capture-tag><contents>
+        );
+    }
+
+    method plain-text($/) {
+        make TWiki::PlainText.new(
+            text => ~$/
+        )
+    }
+
     method block-image($/) {
         my %attributes;
         %attributes.append: $<attribute>.list».ast;
@@ -534,9 +582,20 @@ class TWiki::Actions {
         );
     }
 
+    method text-span($/) {
+        make $/[0].list».hash».values».ast;
+    }
+
     method normal-paragraph($/) {
+        # Text span is an array consisting of lists, but we don't care about
+        # this structure here, so just flatten it completely.
+        #
+        # The grammar structure probably could (should?) be reorganized to
+        # make this unnecessary, but for now this seems to work fine too.
+        my $elements = do gather $<text-span>».ast.deepmap(*.take);
+
         make TWiki::Paragraph.new(
-            text => ~$/
+            elements => | $elements
         );
     }
 }
