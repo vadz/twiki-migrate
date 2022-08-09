@@ -399,7 +399,7 @@ class TWiki::Paragraph {
     has @.elements;
 
     method to-adoc() {
-        $.elements».to-adoc.join("\n") ~ "\n"
+        $.elements».to-adoc.join ~ "\n"
     }
 }
 
@@ -589,15 +589,29 @@ class TWiki::Actions {
     }
 
     method normal-paragraph($/) {
-        # Text span is an array consisting of lists, but we don't care about
-        # this structure here, so just flatten it completely.
+        my @elements;
+
+        # Text span is an array consisting of single-element lists, flatten it
+        # and insert the new lines between the array elements as each span
+        # corresponds to a single (possibly logical, e.g. a <verbatim> block
+        # can have multiple physical lines) line.
         #
         # The grammar structure probably could (should?) be reorganized to
-        # make this unnecessary, but for now this seems to work fine too.
-        my $elements = do gather $<text-span>».ast.deepmap(*.take);
+        # simplify this.
+        for $<text-span>».ast -> $single-line-span {
+            @elements.push(TWiki::PlainText.new("\n")) unless !@elements;
+
+            for $single-line-span.flat -> $span {
+                if $span.elems > 1 {
+                    note "Unexpected span AST structure when parsing $.file: { $span.perl }";
+                }
+
+                @elements.push($span[0]);
+            }
+        }
 
         make TWiki::Paragraph.new(
-            elements => | $elements
+            elements => @elements
         );
     }
 }
