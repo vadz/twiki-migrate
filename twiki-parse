@@ -192,14 +192,26 @@ grammar TWiki::Grammar {
             || <verbatim>
             || <nop>
             || <br>
+            || <strong>
+            || <em>
+            || <bold>
+            || <bold-italic>
+            || <italic>
+            || <bold-fixed>
+            || <fixed>
+            || <span>
             || <plain-text>
         )+
     }
 
     # This is almost like html-tag but is used for TWiki-specific tags too and
-    # captures its contents (and doesn't allow attributes for the opening tag).
+    # captures its contents.
     token capture-tag(Str $tag) {
-        "<$tag>" \n* $<contents>=.+? \n? "</$tag>" \h*
+        "<$tag" [\h+ $<attributes>=<-[>]>+]? ">"
+        \n*
+        $<contents>=.+?
+        \n?
+        "</$tag>"
     }
 
     token verbatim {
@@ -214,9 +226,58 @@ grammar TWiki::Grammar {
         '<br />'
     }
 
-    # TODO: exclude all markup characters: *_=<![
+    token strong {
+        <capture-tag: 'strong'>
+    }
+
+    token em {
+        <capture-tag: 'em'>
+    }
+
+    token bold {
+        '*' $<text>=<-[*\n]>+ '*'
+    }
+
+    token bold-italic {
+        '__' $<text>=<-[_\n]>+ '__'
+    }
+
+    token italic {
+        # Don't take into account underscores appearing in the middle of the
+        # words.
+        « '_' $<text>=<-[_\n]>+ '_' »
+    }
+
+    token bold-fixed {
+        # Note that '=' should be allowed inside here, it can, and is, used.
+        '==' $<text>=[ <-[=]>+ '=' <-[=]>+ ]+ '=='
+    }
+
+    token fixed {
+        # We have to account for a completely pathological but existing case
+        # of using '=' inside this one too when it goes until the end of line
+        # (and it must come first as otherwise it would be never considered).
+        [
+            || '=' $<text>=[ <-[=]>+ '=' <-[=]>+ ]+ '=' $$
+            || '=' $<text>=<-[=\n]>+ '='
+        ]
+    }
+
+    # This one is special because span tags can be nested, but we only handle
+    # the case of having only the nested span inside the outer one, as this is
+    # the only thing which we seem to have in practice.
+    token span {
+        [
+            || '<span' [\h+ <-[>]>+]? '>' \N*? '</span>'
+        ]
+    }
+
+    # Note that "_" has to be allowed here as it can occur in the middle of
+    # the words and unpaired "=" can also occur in the text.
+    #
+    # TODO: exclude [ too when links are supported.
     token plain-text {
-        <-[\n]>+
+        <-[<*\n]>+
     }
 
     token signature-date {
@@ -309,6 +370,15 @@ class TWiki::LineBreak {
     }
 }
 
+class TWiki::FormattedText {
+    has $.delimiter;
+    has $.text;
+
+    method to-adoc() {
+        $.delimiter ~ $.text ~ $.delimiter.flip
+    }
+}
+
 class TWiki::PlainText {
     has $.text;
 
@@ -370,6 +440,14 @@ class TWiki::List {
 
     method to-adoc() {
         @.items».to-adoc.join ~ "\n"
+    }
+}
+
+class TWiki::HTMLSpan {
+    has $.html;
+
+    method to-adoc() {
+        "+++$.html+++"
     }
 }
 
@@ -552,6 +630,64 @@ class TWiki::Actions {
 
     method br($/) {
         make TWiki::LineBreak.new();
+    }
+
+    method strong($/) {
+        # Most occurrences of <strong> can be mapped to Asciidoc native bold
+        # markup, but this tag can also be used with attributes, in which case
+        # we need to preserve it as HTML.
+        my $attributes = $<capture-tag><attributes>;
+
+        $attributes
+            ?? make TWiki::HTMLSpan.new(
+                html => ~$/
+            )
+            !! make TWiki::FormattedText.new(
+                delimiter => '*',
+                text      => ~$<capture-tag><contents>
+            );
+    }
+
+    method em($/) {
+        make TWiki::FormattedText.new(
+            delimiter => '_',
+            text      => ~$<capture-tag><contents>
+        );
+    }
+
+    method bold($/) {
+        make TWiki::FormattedText.new(
+            delimiter => '*',
+            text      => ~$<text>
+        );
+    }
+
+    method bold-italic($/) {
+        make TWiki::FormattedText.new(
+            delimiter => '*_',
+            text      => ~$<text>
+        );
+    }
+
+    method italic($/) {
+        make TWiki::FormattedText.new(
+            delimiter => '_',
+            text      => ~$<text>
+        );
+    }
+
+    method bold-fixed($/) {
+        make TWiki::FormattedText.new(
+            delimiter => '`*',
+            text      => ~$<text>
+        );
+    }
+
+    method fixed($/) {
+        make TWiki::FormattedText.new(
+            delimiter => '`',
+            text      => ~$<text>
+        );
     }
 
     method plain-text($/) {
