@@ -189,6 +189,7 @@ grammar TWiki::Grammar {
         (
             || <verbatim>
             || <nop>
+            || <br>
             || <plain-text>
         )+
     }
@@ -205,6 +206,10 @@ grammar TWiki::Grammar {
 
     token nop {
         '<nop>'
+    }
+
+    token br {
+        '<br />'
     }
 
     # TODO: exclude all markup characters: *_=<![
@@ -293,6 +298,12 @@ class TWiki::Verbatim {
 class TWiki::Ignored {
     method to-adoc() {
         ''
+    }
+}
+
+class TWiki::LineBreak {
+    method to-adoc() {
+        " +\n"
     }
 }
 
@@ -534,6 +545,10 @@ class TWiki::Actions {
 
     method nop($/) {
         make TWiki::Ignored.new();
+    }
+
+    method br($/) {
+        make TWiki::LineBreak.new();
     }
 
     method plain-text($/) {
