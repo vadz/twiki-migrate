@@ -155,6 +155,7 @@ grammar TWiki::Grammar {
         [
             || <html-tag: 'table'> <.ws> <html-tag: 'div'>?
             || [ <html-tag: 'div'> <.ws> ]+ <.html-comment>?
+            || <html-tag: 'form'>
         ]
     }
 
