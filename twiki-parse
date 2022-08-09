@@ -63,7 +63,7 @@ grammar TWiki::Grammar {
             || [ <separator> | <header> ]
             || <.signature>
             || <block-image>
-            || <list>
+            || <list-items>
             || <html-fragment>
             || <table>
             || <.attachment>
@@ -97,12 +97,14 @@ grammar TWiki::Grammar {
         ^^ <.ws> '<img ' ~ ' />' [ <attribute>+ % ' ' ]
     }
 
-    token list {
-        ^^ $<indent>=['   ' ** 1..*] <!before ' '>
-        (
-            <list-item>
-            [\n $<indent> <list-item>]+
-        )
+    token list-indent {
+        '   '
+    }
+
+    token list-items {
+        ^^ <.list-indent> <!before \s>
+        <list-item>
+        [\n <.list-indent> <list-item>]*
     }
 
     token list-item {
@@ -117,7 +119,7 @@ grammar TWiki::Grammar {
     # List item text can wrap on the following line if it starts by 3 spaces,
     # but we shouldn't match the following item here.
     token list-text {
-        \N+ [ \n '   ' <-[* 1..9 A a $]> \N+ ]*
+        <.text-span> [ \n <.list-indent> <-[* 1..9 A a $]> <.text-span>+ ]*
     }
 
     token list-bullet {
@@ -335,6 +337,14 @@ class TWiki::DefListItem {
     }
 }
 
+class TWiki::List {
+    has @.items;
+
+    method to-adoc() {
+        join("\n", @.items».to-adoc) ~ "\n"
+    }
+}
+
 class TWiki::HTMLFragment {
     has $.html is rw;
 
@@ -521,8 +531,16 @@ class TWiki::Actions {
         );
     }
 
+    method list-items($/) {
+        make TWiki::List.new(
+            items => $/<list-item>».ast
+        );
+    }
+
     method list-item($/) {
-        make $/[0].hash.values».ast;
+        # The matches hash here contains just a single element because it's an
+        # alternative, so take it.
+        make $/[0].hash.values[0].ast;
     }
 
     method list-bullet($/) {
