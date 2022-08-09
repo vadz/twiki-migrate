@@ -285,6 +285,10 @@ class TWiki::Verbatim {
 class TWiki::PlainText {
     has $.text;
 
+    method new(Str $text) {
+        self.bless(:$text)
+    }
+
     method to-adoc() {
         $.text
     }
@@ -505,9 +509,7 @@ class TWiki::Actions {
     }
 
     method plain-text($/) {
-        make TWiki::PlainText.new(
-            text => ~$/
-        )
+        make TWiki::PlainText.new(~$/);
     }
 
     method block-image($/) {
