@@ -68,7 +68,7 @@ grammar TWiki::Grammar {
             || <table>
             || <.attachment>
             || <.ignored-meta>
-            || <normal-paragraph>
+            || <normal-text>
         )
 
         [ \n+ || $ ]
@@ -247,8 +247,8 @@ grammar TWiki::Grammar {
         ]
     }
 
-    token normal-paragraph {
-        [^^ <text-span>]+ %% \n
+    token normal-text {
+        ^^ <text-span>
     }
 }
 
@@ -395,11 +395,11 @@ class TWiki::Table {
     }
 }
 
-class TWiki::Paragraph {
+class TWiki::Text {
     has @.elements;
 
     method to-adoc() {
-        $.elements».to-adoc.join ~ "\n"
+        @.elements».to-adoc.join ~ "\n"
     }
 }
 
@@ -585,33 +585,27 @@ class TWiki::Actions {
     }
 
     method text-span($/) {
-        make $/[0].list».hash».values».ast;
-    }
-
-    method normal-paragraph($/) {
-        my @elements;
-
-        # Text span is an array consisting of single-element lists, flatten it
-        # and insert the new lines between the array elements as each span
-        # corresponds to a single (possibly logical, e.g. a <verbatim> block
-        # can have multiple physical lines) line.
+        # Text span contains a single multiple match represented by an array
+        # whose elements are single-element hashes, so flatten them.
         #
         # The grammar structure probably could (should?) be reorganized to
         # simplify this.
-        for $<text-span>».ast -> $single-line-span {
-            @elements.push(TWiki::PlainText.new("\n")) unless !@elements;
-
-            for $single-line-span.flat -> $span {
-                if $span.elems > 1 {
-                    note "Unexpected span AST structure when parsing $.file: { $span.perl }";
-                }
-
-                @elements.push($span[0]);
+        my @elements;
+        for $/[0] -> $single-element {
+            my $span = $single-element.hash.values;
+            if $span.elems != 1 {
+                note "Unexpected span AST structure when parsing $.file: { $span.perl }";
             }
+
+            @elements.push: $span[0].ast;
         }
 
-        make TWiki::Paragraph.new(
-            elements => @elements
+        make @elements;
+    }
+
+    method normal-text($/) {
+        make TWiki::Text.new(
+            elements => $<text-span>.ast
         );
     }
 }
