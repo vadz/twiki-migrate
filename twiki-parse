@@ -98,7 +98,9 @@ grammar TWiki::Grammar {
     }
 
     token list-indent {
-        '   '
+        # In principle, only spaces are allowed. but some of the existing
+        # pages use TABs, so we have to accept them too.
+        '   ' || \t
     }
 
     token list-items {
