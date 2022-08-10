@@ -98,8 +98,16 @@ grammar TWiki::Grammar {
         $<name>=[\w+] '=' $<quote>=<['"]> ~ $<quote> $<value>=<-['"]>+
     }
 
+    token image-tag {
+        '<img ' ~ ' />' [ <attribute>+ % ' ' ]
+    }
+
     token block-image {
-        ^^ <.ws> '<img ' ~ ' />' [ <attribute>+ % ' ' ]
+        ^^ <.ws> <image-tag>
+    }
+
+    token inline-image {
+        <image-tag>
     }
 
     # In principle, only spaces are allowed. but some of the existing pages
@@ -226,6 +234,7 @@ grammar TWiki::Grammar {
             || <bold-fixed>
             || <fixed>
             || <span>
+            || <inline-image>
             || <normal-word>
         )+
     }
@@ -472,6 +481,8 @@ class TWiki::Image {
     has $.width;
     has $.height;
 
+    has $.image-macro is rw;
+
     method gist(Int $indent = 0) {
         indent($indent, "{ self.^name }($.src)")
     }
@@ -482,7 +493,19 @@ class TWiki::Image {
             $extra_attrs = ",$.width,$.height"
         }
 
-        "image::{$.src}[{$.alt}{$extra_attrs}]"
+        "{$.image-macro}{$.src}[{$.alt}{$extra_attrs}]"
+    }
+}
+
+class TWiki::BlockImage is TWiki::Image {
+    submethod TWEAK {
+        self.image-macro = 'image::';
+    }
+}
+
+class TWiki::InlineImage is TWiki::Image {
+    submethod TWEAK {
+        self.image-macro = 'image:';
     }
 }
 
@@ -865,12 +888,22 @@ class TWiki::Actions {
         make TWiki::PlainText.new(~$/);
     }
 
-    method block-image($/) {
+    method image-tag($/) {
         my %attributes;
         %attributes.append: $<attribute>.list».ast;
 
-        make TWiki::Image.new(
-            | %attributes
+        make %attributes;
+    }
+
+    method block-image($/) {
+        make TWiki::BlockImage.new(
+            | $<image-tag>.ast
+        );
+    }
+
+    method inline-image($/) {
+        make TWiki::InlineImage.new(
+            | $<image-tag>.ast
         );
     }
 
