@@ -142,7 +142,7 @@ grammar TWiki::Grammar {
     # single indent (even for a nested list!), but we shouldn't match the
     # following item here.
     token list-text(Int $level) {
-        <text-span> [ \n <.list-indent: 1> <-[* 1..9 A a $]> <text-span>+ ]*
+        <text-span> [ \n <.list-indent: 1> <!before <[* 1..9 A a $]> > <text-span>+ ]*
     }
 
     token list-bullet(Int $level) {
@@ -774,8 +774,17 @@ class TWiki::Actions {
     }
 
     method list-text($/) {
+        my @elements;
+        for $<text-span> -> $span {
+            # Ensure there is a space before the continuation line.
+            if @elements {
+                @elements.push: TWiki::PlainText.new(' ')
+            }
+            @elements.append: $span.ast;
+        }
+
         make TWiki::Text.new(
-            elements => $<text-span>[0].ast
+            elements => @elements
         )
     }
 
