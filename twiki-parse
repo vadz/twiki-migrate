@@ -439,10 +439,14 @@ class TWiki::FormattedText {
 }
 
 class TWiki::PlainText {
-    has $.text;
+    has $.text is rw;
 
     method new(Str $text) {
         self.bless(:$text)
+    }
+
+    method append(Str $text) {
+        $.text ~= $text;
     }
 
     method gist(Int $indent = 0) {
@@ -633,7 +637,22 @@ class TWiki::Table {
 class TWiki::Text {
     has @.elements;
 
-    method new(*@elements) {
+    method new(*@elements-orig) {
+        # Coalesce consecutive plain text arguments into a single one.
+        my Bool $last-is-plain-text = False;
+
+        my @elements;
+        for @elements-orig -> $element {
+            my Bool $this-is-plain-text = $element ~~ TWiki::PlainText;
+
+            if $last-is-plain-text && $this-is-plain-text {
+                @elements.tail.append: $element.text;
+            } else {
+                @elements.append: $element;
+                $last-is-plain-text = $this-is-plain-text;
+            }
+        }
+
         self.bless(:@elements)
     }
 
