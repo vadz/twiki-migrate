@@ -633,6 +633,10 @@ class TWiki::Table {
 class TWiki::Text {
     has @.elements;
 
+    method new(*@elements) {
+        self.bless(:@elements)
+    }
+
     method gist(Int $indent = 0) {
         indent($indent, "{ self.^name }(\n" ~
             join("\n", @.elements».gist($indent + 1)) ~
@@ -845,7 +849,8 @@ class TWiki::Actions {
 
     method bad-list-item($/) {
         make TWiki::Text.new(
-            elements => $<text-span>.ast.prepend(TWiki::PlainText.new('* '))
+            TWiki::PlainText.new('* '),
+            $<text-span>.ast
         )
     }
 
@@ -871,9 +876,7 @@ class TWiki::Actions {
             @elements.append: $span.ast;
         }
 
-        make TWiki::Text.new(
-            elements => @elements
-        )
+        make TWiki::Text.new(@elements);
     }
 
     method list-bullet($/) {
@@ -908,9 +911,7 @@ class TWiki::Actions {
 
         make TWiki::Header.new(
             level => $/<level>.chars,
-            text  => TWiki::Text.new(
-                elements => $text.ast
-            )
+            text  => TWiki::Text.new($text.ast)
         );
     }
 
@@ -957,9 +958,7 @@ class TWiki::Actions {
     }
 
     method normal-text($/) {
-        make TWiki::Text.new(
-            elements => $<text-span>.ast
-        );
+        make TWiki::Text.new($<text-span>.ast);
     }
 }
 
