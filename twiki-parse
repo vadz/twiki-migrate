@@ -834,7 +834,7 @@ class TWiki::Actions {
     }
 }
 
-sub MAIN(*@twiki-files, Str :$out-dir, Bool :$debug) {
+sub MAIN(*@twiki-files, Str :$out-dir, Bool :$debug, Bool :$stop-on-first-error) {
     # Process command-line arguments and read the input files.
     sub log-debug($msg) {
         note $msg if $debug;
@@ -848,25 +848,31 @@ sub MAIN(*@twiki-files, Str :$out-dir, Bool :$debug) {
     for @twiki-files -> $twiki-file {
         my $input = $twiki-file.IO.slurp;
 
-        CATCH {
-            default {
-                note "Error while parsing $twiki-file: $_.";
-                $rc = 2;
-            }
-        }
-
         my $actions = TWiki::Actions.new(file => $twiki-file);
-        my $result = TWiki::Grammar.parse($input, :actions($actions)).ast;
+        my $result = try TWiki::Grammar.parse($input, :actions($actions)).ast;
         if ! $result {
             note "Failed to parse $twiki-file as TWiki page.";
+            note $! if $!;
+
             $rc = 1;
+
+            last if $stop-on-first-error;
         } else {
             log-debug $result;
 
             if $out-dir {
-                $out-dir.IO.add(
-                    get-name-from-twiki-file($twiki-file) ~ '.adoc'
-                ).spurt: $result.to-adoc
+                try {
+                    $out-dir.IO.add(
+                        get-name-from-twiki-file($twiki-file) ~ '.adoc'
+                    ).spurt: $result.to-adoc
+                }
+
+                if $! {
+                    note "Failed to convert $twiki-file to Asciidoc: $!\n{ $!.backtrace }";
+                    $rc = 2;
+
+                    last if $stop-on-first-error;
+                }
             }
         }
     }
