@@ -794,7 +794,7 @@ class TWiki::Actions {
     method list-def($/) {
         make TWiki::DefListItem.new(
             name => ~$<name>,
-            text => ~$<text>,
+            text => $<text>.ast,
         );
     }
 
