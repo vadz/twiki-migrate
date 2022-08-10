@@ -237,6 +237,7 @@ grammar TWiki::Grammar {
             || <inline-image>
             || <html-link>
             || <literal>
+            || <not-a-link>
             || <normal-word>
         )+
     }
@@ -325,6 +326,8 @@ grammar TWiki::Grammar {
         <capture-tag: 'literal'>
     }
 
+    token not-a-link {
+        '!' ( [ <upper> <lower>+ ]+ )
     }
 
     # We need to allow "="s not at the start or end of the word (knowing that
@@ -904,6 +907,10 @@ class TWiki::Actions {
         make TWiki::HTMLFragment.new(
             html => ~$<capture-tag><contents>
         );
+    }
+
+    method not-a-link($/) {
+        make TWiki::PlainText.new(~$/[0]);
     }
 
     method normal-word($/) {
