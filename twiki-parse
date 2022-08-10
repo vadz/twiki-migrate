@@ -557,7 +557,7 @@ class TWiki::Text {
     has @.elements;
 
     method to-adoc() {
-        @.elements».to-adoc.join ~ "\n"
+        @.elements».to-adoc.join
     }
 }
 
@@ -566,7 +566,7 @@ class TWiki::Page {
     has @.body;
 
     method to-adoc() {
-        join "\n", $.metainfo.to-adoc, @.body».to-adoc
+        join("\n", $.metainfo.to-adoc, @.body».to-adoc) ~ "\n"
     }
 }
 
