@@ -289,13 +289,23 @@ grammar TWiki::Grammar {
         ]
     }
 
-    # This one is special because span tags can be nested, but we only handle
-    # the case of having only the nested span inside the outer one, as this is
-    # the only thing which we seem to have in practice.
+    # This one is special because span tags can be nested, but we handle only
+    # the cases that really happen in practice instead of writing a general
+    # rule for arbitrarily nested tags.
     token span {
-        [
-            || '<span' [\h+ <-[>]>+]? '>' \N*? '</span>'
-        ]
+        || <.span-open> \N*? <.span-open> \N*? <.span-open> \N+? <.span-close> \N*? <.span-close> \N*? <.span-close>
+        || <.span-open> \N*? <.span-open> \N+? <.span-close> \N*? <.span-close>
+        || <.span-open> \N+? <.span-close>
+    }
+
+    token span-open {
+        '<span' [\h+ <-[>]>+]? '>'
+    }
+
+    token span-close {
+        '</span>'
+    }
+
     }
 
     # We need to allow "="s not at the start or end of the word (knowing that
