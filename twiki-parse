@@ -538,7 +538,7 @@ class TWiki::HTMLSpan {
     has $.html;
 
     method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }(\n$.html\n)")
+        indent($indent, "{ self.^name }(\n{ indent(1, $.html) }\n)")
     }
 
     method to-adoc() {
