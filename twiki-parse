@@ -235,6 +235,7 @@ grammar TWiki::Grammar {
             || <fixed>
             || <span>
             || <inline-image>
+            || <html-link>
             || <normal-word>
         )+
     }
@@ -313,6 +314,10 @@ grammar TWiki::Grammar {
 
     token span-close {
         '</span>'
+    }
+
+    token html-link {
+        <capture-tag: 'a'>
     }
 
     }
@@ -879,6 +884,12 @@ class TWiki::Actions {
     }
 
     method span($/) {
+        make TWiki::HTMLSpan.new(
+            html => ~$/
+        );
+    }
+
+    method html-link($/) {
         make TWiki::HTMLSpan.new(
             html => ~$/
         );
