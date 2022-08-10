@@ -236,6 +236,7 @@ grammar TWiki::Grammar {
             || <span>
             || <inline-image>
             || <html-link>
+            || <literal>
             || <normal-word>
         )+
     }
@@ -318,6 +319,10 @@ grammar TWiki::Grammar {
 
     token html-link {
         <capture-tag: 'a'>
+    }
+
+    token literal {
+        <capture-tag: 'literal'>
     }
 
     }
@@ -892,6 +897,12 @@ class TWiki::Actions {
     method html-link($/) {
         make TWiki::HTMLSpan.new(
             html => ~$/
+        );
+    }
+
+    method literal($/) {
+        make TWiki::HTMLFragment.new(
+            html => ~$<capture-tag><contents>
         );
     }
 
