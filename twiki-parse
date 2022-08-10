@@ -292,13 +292,10 @@ grammar TWiki::Grammar {
     }
 
     token fixed {
-        # We have to account for a completely pathological but existing case
-        # of using '=' inside this one too when it goes until the end of line
-        # (and it must come first as otherwise it would be never considered).
-        [
-            || '=' $<text>=[ <-[=]>+ '=' <-[=]>+ ]+ '=' $$
-            || '=' $<text>=<-[=\n]>+ '='
-        ]
+        # We have to account for using '=' inside this one, this can happen as
+        # long as it's not followed by a space or punctuation (but not any
+        # punctuation neither, as we can something like "=path=/root=" too).
+        '=' $<text>=\N+? '=' <?before <[\s , . : ; ( )]>>
     }
 
     # This one is special because span tags can be nested, but we handle only
