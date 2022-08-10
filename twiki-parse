@@ -175,7 +175,9 @@ grammar TWiki::Grammar {
     }
 
     token table {
-        ^^ '|'
+        ^^
+        [ '%TABLE{ ' <.metavar>+ % ' ' ' }%' \n ]?
+        '|'
         [
             || [ <header-row> || <table-row> ] \n
                [ '|' <table-row> ]* % \n
