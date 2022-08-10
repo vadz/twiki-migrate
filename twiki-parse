@@ -97,49 +97,61 @@ grammar TWiki::Grammar {
         ^^ <.ws> '<img ' ~ ' />' [ <attribute>+ % ' ' ]
     }
 
-    token list-indent {
-        # In principle, only spaces are allowed. but some of the existing
-        # pages use TABs, so we have to accept them too.
-        '   ' || \t
+    # In principle, only spaces are allowed. but some of the existing pages
+    # use TABs, so we have to accept them too.
+    token list-indent(Int $level) {
+        <list-space-indent: $level> || <list-tab-indent: $level>
     }
 
-    token list-items {
-        ^^ <.list-indent> <!before \s>
-        <list-item>
-        [\n <.list-indent> <list-item>]*
+    # Also, just <...>**$level doesn't work, so use a code block.
+    token list-space-indent(Int $level) {
+        '   '+ <?{ $/.chars div 3 == $level }>
     }
 
-    token list-item {
+    token list-tab-indent(Int $level) {
+        \t+ <?{ $/.chars == $level }>
+    }
+
+    token list-items(Int $level = 1) {
+        ^^ <list-indent: $level> <!before \s>
+        $<item>=<list-item: $level>
+        [
+            || \n $<item>=<list-items: $level + 1>
+            || \n <.list-indent: $level> $<item>=<list-item: $level>
+        ]*
+    }
+
+    token list-item(Int $level) {
         (
-            || <list-bullet>
-            || <list-numbered>
-            || <list-def>
-            || { die "Incorrect list item syntax near position { $/.pos() + 3 }" }
+            || <list-bullet: $level>
+            || <list-numbered: $level>
+            || <list-def: $level>
+            || { die "Incorrect level $level list syntax near position { $/.pos() + 3 }" }
         )
     }
 
     # List item text can wrap on the following line if it starts by 3 spaces,
     # but we shouldn't match the following item here.
-    token list-text {
-        <text-span> [ \n <.list-indent> <-[* 1..9 A a $]> <text-span>+ ]*
+    token list-text(Int $level) {
+        <text-span> [ \n <.list-indent: $level> <-[* 1..9 A a $]> <text-span>+ ]*
     }
 
-    token list-bullet {
+    token list-bullet(Int $level) {
         # There are some (useless) empty list items in the existing pages, so
         # allow them.
-        '* ' <list-text>?
+        '* ' <list-text: $level>?
     }
 
-    token list-numbered {
+    token list-numbered(Int $level) {
         # Period is supposed to be mandatory here but in practice can be (and
         # is) omitted. OTOH we don't support Roman numerals of numbering nor
         # any other Latin letters because this is not used in the existing
         # pages.
-        <[1..9 A a]> '.'? ' ' <list-text>
+        <[1..9 A a]> '.'? ' ' <list-text: $level>
     }
 
-    token list-def {
-        '$ ' $<name>=<-[:\n]>+ ': ' $<text>=<.list-text>
+    token list-def(Int $level) {
+        '$ ' $<name>=<-[:\n]>+ ': ' $<text>=<.list-text: $level>
     }
 
     # This is only good for non-nested tags, of course, but, luckily, this is
@@ -410,19 +422,19 @@ class TWiki::Image {
 class TWiki::BulletListItem {
     has $.text;
 
-    method to-adoc() {
+    method to-adoc(Int $level) {
         # As mentioned in the grammar, there are some empty lists, accept them
         # without complaining and, as a lone "*" isn't recognized as a list
         # item, ensure that we always use a non-empty text.
-        "* { $.text ?? $.text.to-adoc !! '&nbsp;' }"
+        '*' x $level ~ ' ' ~ ($.text ?? $.text.to-adoc !! '&nbsp;')
     }
 }
 
 class TWiki::NumberedListItem {
     has $.text;
 
-    method to-adoc() {
-        ". { $.text.to-adoc }"
+    method to-adoc(Int $level) {
+        '.' x $level ~ ' ' ~ $.text.to-adoc
     }
 }
 
@@ -430,7 +442,8 @@ class TWiki::DefListItem {
     has $.name;
     has $.text;
 
-    method to-adoc() {
+    method to-adoc(Int $level) {
+        note "Definition lists at level $level not supported." if $level != 1;
         "{$.name}:: { $.text.to-adoc }"
     }
 }
@@ -438,8 +451,15 @@ class TWiki::DefListItem {
 class TWiki::List {
     has @.items;
 
-    method to-adoc() {
-        @.items».to-adoc.join ~ "\n"
+    method to-adoc(Int $level = 0) {
+        my $adoc = @.items».to-adoc($level + 1).join;
+
+        # Separate top level lists with new lines.
+        if $level == 0 {
+            $adoc ~= "\n"
+        }
+
+        $adoc
     }
 }
 
@@ -705,7 +725,7 @@ class TWiki::Actions {
 
     method list-items($/) {
         make TWiki::List.new(
-            items => $/<list-item>».ast
+            items => $<item>».ast
         );
     }
 
