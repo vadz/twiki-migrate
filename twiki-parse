@@ -710,6 +710,12 @@ class TWiki::Actions {
         );
     }
 
+    method span($/) {
+        make TWiki::HTMLSpan.new(
+            html => ~$/
+        );
+    }
+
     method plain-text($/) {
         make TWiki::PlainText.new(~$/);
     }
