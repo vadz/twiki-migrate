@@ -130,10 +130,11 @@ grammar TWiki::Grammar {
         )
     }
 
-    # List item text can wrap on the following line if it starts by 3 spaces,
-    # but we shouldn't match the following item here.
+    # List item text can wrap on the following line if it starts by just a
+    # single indent (even for a nested list!), but we shouldn't match the
+    # following item here.
     token list-text(Int $level) {
-        <text-span> [ \n <.list-indent: $level> <-[* 1..9 A a $]> <text-span>+ ]*
+        <text-span> [ \n <.list-indent: 1> <-[* 1..9 A a $]> <text-span>+ ]*
     }
 
     token list-bullet(Int $level) {
