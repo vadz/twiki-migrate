@@ -245,7 +245,7 @@ grammar TWiki::Grammar {
     token capture-tag(Str $tag) {
         "<$tag" [\h+ $<attributes>=<-[>]>+]? ">"
         \n*
-        $<contents>=.+?
+        $<contents>=.*?
         \n?
         "</$tag>"
     }
