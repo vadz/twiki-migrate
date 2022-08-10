@@ -68,7 +68,6 @@ grammar TWiki::Grammar {
             || [ <separator> | <header> ]
             || <.signature>
             || <block-image>
-            || <bad-list-item>
             || <list-items>
             || <html-fragment>
             || <table>
@@ -101,13 +100,6 @@ grammar TWiki::Grammar {
 
     token block-image {
         ^^ <.ws> '<img ' ~ ' />' [ <attribute>+ % ' ' ]
-    }
-
-    # This is a mistake in TWiki markup and not rendered correctly by it, but
-    # accept it and pass it on as literal text, as it will work as originally
-    # intended in Asciidoc.
-    token bad-list-item {
-        ^^ '* ' <text-span>
     }
 
     # In principle, only spaces are allowed. but some of the existing pages
@@ -311,12 +303,17 @@ grammar TWiki::Grammar {
     # "*" inside the words (those preceded by the word boundaries should have
     # been consumed by <italic>).
     #
+    # Also allow "*" at the beginning of the line because there is wrong TWiki
+    # markup using it -- this is not rendered correctly by it, but we still
+    # have to accept it, if only as plain text.
+    #
     # TODO: exclude ! and [ too when links are supported.
     token normal-word {
         || <-[<*_=\n]> <[\w] + [! \[ \] . _ *]>*
         || <!wb> '=' <!wb>
         || <wb> '=' <wb>
         || <wb> '==' <wb>
+        || ^^ '*' <wb>
     }
 
     token signature-date {
@@ -864,13 +861,6 @@ class TWiki::Actions {
         make TWiki::Image.new(
             | %attributes
         );
-    }
-
-    method bad-list-item($/) {
-        make TWiki::Text.new(
-            TWiki::PlainText.new('* '),
-            $<text-span>.ast
-        )
     }
 
     method list-items($/) {
