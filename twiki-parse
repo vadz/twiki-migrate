@@ -187,6 +187,11 @@ grammar TWiki::Grammar {
         \h*
     }
 
+    # This is our own token, unlike <ws>.
+    token space {
+        \h+
+    }
+
     token header-row {
         [ <.ws> <header-cell>? '|' ]+ <.ws>
     }
@@ -201,6 +206,7 @@ grammar TWiki::Grammar {
 
     token text-span {
         (
+            || <space>
             || <verbatim>
             || <nop>
             || <br>
@@ -212,7 +218,7 @@ grammar TWiki::Grammar {
             || <bold-fixed>
             || <fixed>
             || <span>
-            || <plain-text>
+            || <normal-word>
         )+
     }
 
@@ -247,22 +253,22 @@ grammar TWiki::Grammar {
     }
 
     token bold {
-        '*' $<text>=<-[*\n]>+ '*'
+        <!after \w> '*' $<text>=\N+? '*' <!before \w>
     }
 
     token bold-italic {
-        '__' $<text>=<-[_\n]>+ '__'
+        « '__' $<text>=\N+? '__' »
     }
 
     token italic {
         # Don't take into account underscores appearing in the middle of the
-        # words.
-        « '_' $<text>=<-[_\n]>+ '_' »
+        # words and do allow them in between those that bracket words.
+        « '_' $<text>=\N+? '_' »
     }
 
     token bold-fixed {
         # Note that '=' should be allowed inside here, it can, and is, used.
-        '==' $<text>=[ <-[=]>+ '=' <-[=]>+ ]+ '=='
+        <!after \w> '==' $<text>=[ <-[=]>+ '=' <-[=]>+ ]+ '==' <!before \w>
     }
 
     token fixed {
@@ -284,12 +290,17 @@ grammar TWiki::Grammar {
         ]
     }
 
-    # Note that "_" has to be allowed here as it can occur in the middle of
-    # the words and unpaired "=" can also occur in the text.
+    # We need to allow "="s not at the start or end of the word (knowing that
+    # the other ones will be consumed by <fixed> tried earlier) and "_" and
+    # "*" inside the words (those preceded by the word boundaries should have
+    # been consumed by <italic>).
     #
-    # TODO: exclude [ too when links are supported.
-    token plain-text {
-        <-[<*\n]>+
+    # TODO: exclude ! and [ too when links are supported.
+    token normal-word {
+        || <-[<*_=\n]> <[\S] - [< = >]>*
+        || <!wb> '=' <!wb>
+        || <wb> '=' <wb>
+        || <wb> '==' <wb>
     }
 
     token signature-date {
@@ -638,6 +649,10 @@ class TWiki::Actions {
         make ~$/<name> => ~$/<value>;
     }
 
+    method space($/) {
+        make TWiki::PlainText.new(~$/);
+    }
+
     method verbatim($/) {
         make TWiki::Verbatim.new(
             text => ~$<capture-tag><contents>
@@ -716,7 +731,7 @@ class TWiki::Actions {
         );
     }
 
-    method plain-text($/) {
+    method normal-word($/) {
         make TWiki::PlainText.new(~$/);
     }
 
