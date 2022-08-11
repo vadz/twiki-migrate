@@ -108,7 +108,7 @@ grammar TWiki::Grammar {
     }
 
     token block-image {
-        ^^ <.ws> <image-tag>
+        ^^ <.ws> <image-tag> <.ws> $$
     }
 
     token inline-image {
