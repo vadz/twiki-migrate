@@ -129,6 +129,7 @@ grammar TWiki::Grammar {
         $<item>=<list-item: $level>
         [
             || \n $<item>=<list-items: $level + 1>
+            || \n \h* <?before \n>
             || \n <.list-indent: $level> $<item>=<list-item: $level>
         ]*
     }
