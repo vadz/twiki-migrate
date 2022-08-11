@@ -228,6 +228,7 @@ grammar TWiki::Grammar {
     token text-span {
         (
             || <space>
+            || <pre-verbatim>
             || <verbatim>
             || <nop>
             || <br>
@@ -255,6 +256,10 @@ grammar TWiki::Grammar {
         $<contents>=.*?
         \n?
         "</$tag>"
+    }
+
+    token pre-verbatim {
+        '<pre>' <.ws> <capture-tag: 'verbatim'> \s*? '</pre>'
     }
 
     token verbatim {
@@ -828,6 +833,12 @@ class TWiki::Actions {
 
     method space($/) {
         make TWiki::PlainText.new(~$/);
+    }
+
+    method pre-verbatim($/) {
+        make TWiki::HTMLFragment.new(
+            html => ~$<capture-tag><contents>
+        );
     }
 
     method verbatim($/) {
