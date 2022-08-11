@@ -761,8 +761,15 @@ class TWiki::Text {
     }
 
     method gist(Int $indent = 0) {
+        my @element-gists;
+        for @.elements -> $element {
+            @element-gists.append: $element
+                ?? $element.gist(1)
+                !! indent(1, '!!! MISSING AST NODE !!!')
+        }
+
         indent($indent, "{ self.^name }(\n" ~
-            join("\n", @.elements».gist($indent + 1)) ~
+            join("\n", @element-gists) ~
         "\n)")
     }
 
