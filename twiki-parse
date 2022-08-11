@@ -440,14 +440,11 @@ grammar TWiki::Grammar {
 
     token ignored-directive {
         [
-            [
-                || 'META:' [ FORM || FIELD || PREFERENCE || TOPICMOVED ]
-                || 'EDITPREFERENCES'
-                || 'INCLUDE'
-                || 'SEARCH'
-            ] '{'  \N+? '}'
-            || { die "Unknown directive near position { $/.pos() + 5 }" }
-        ]
+            || 'META:' [ FORM || FIELD || PREFERENCE || TOPICMOVED ]
+            || 'EDITPREFERENCES'
+            || 'INCLUDE'
+            || 'SEARCH'
+        ] '{'  \N+? '}'
     }
 
     token normal-text {
@@ -1220,6 +1217,10 @@ class TWiki::Actions {
         }
 
         make @elements;
+    }
+
+    method ignored-directive($/) {
+        make TWiki::Ignored.new();
     }
 
     method normal-text($/) {
