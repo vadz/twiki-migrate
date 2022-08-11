@@ -72,7 +72,6 @@ grammar TWiki::Grammar {
             || <html-fragment>
             || <table>
             || <.attachment>
-            || <.ignored-directive>
             || <normal-text>
         )
 
@@ -223,7 +222,8 @@ grammar TWiki::Grammar {
     token text-span {
         (
             || <space>
-            || <toc>
+            || <percent-sign>
+            || <variable>
             || <pre-verbatim>
             || <verbatim>
             || <nop>
@@ -255,8 +255,33 @@ grammar TWiki::Grammar {
         "</$tag>"
     }
 
+    # Handle percent signs at the end of the words separately to detect
+    # unknown variables when we encounter them in any other place.
+    token percent-sign {
+        '%' <?before \s>
+    }
+
+    token variable {
+        '%' (
+            || <toc>
+            || <icon>
+            || <ignored-directive>
+        ) '%'
+    }
+
     token toc {
-        '%TOC%'
+        'TOC'
+    }
+
+    token icon {
+        || 'ICON{' $<name>=[ 'info' || 'note' || 'question' || 'todo' || 'warning' || 'wip' ] '}'
+        || $<name>=<[H P X Y]>
+        # Those ones don't actually exist, but are used in several places, so
+        # handle them too.
+        || $<name>='FIXME'
+        || $<name>='TODO'
+    }
+
     }
 
     token pre-verbatim {
@@ -399,14 +424,13 @@ grammar TWiki::Grammar {
     }
 
     token ignored-directive {
-        ^^ '%' <!before 'ATTACHURL%' || 'ICON' || 'H%' || 'P%' || 'X%' || 'Y%'>
         [
             [
                 || 'META:' [ FORM || FIELD || PREFERENCE || TOPICMOVED ]
                 || 'EDITPREFERENCES'
                 || 'INCLUDE'
                 || 'SEARCH'
-            ] '{'  \N+? '}%'
+            ] '{'  \N+? '}'
             || { die "Unknown directive near position { $/.pos() + 5 }" }
         ]
     }
@@ -599,6 +623,20 @@ class TWiki::List {
         }
 
         $adoc
+    }
+}
+
+class TWiki::Icon {
+    has Str $.name;
+
+    method gist(Int $indent = 0) {
+        indent($indent, "{ self.^name }($.name)")
+    }
+
+    method to-adoc() {
+        # We use GitHub-specific icon names as it seems to be the only thing
+        # which actually works when rendering.
+        "+++:$.name:+++"
     }
 }
 
@@ -854,6 +892,37 @@ class TWiki::Actions {
         # Although this token is only recognized for its side effect, we still
         # must have something corresponding to it in the AST node.
         make TWiki::Ignored.new();
+    }
+
+    method percent-sign($/) {
+        make TWiki::PlainText.new(~$/);
+    }
+
+    method icon($/) {
+        # This is an abstraction violation but we translate TWiki icons names
+        # directly to GitHub emojis names for simplicity.
+        my $name = do given ~$/<name> {
+            when 'info'             { 'writing_hand' }
+            when /note || P/        { 'pencil' }
+            when 'question'         { 'question' }
+            when /:i ^ todo $/      { 'stop_sign' }
+            when 'FIXME'            { 'exclamation' }
+            when /warning || X/     { 'warning' }
+            when 'wip'              { 'construction' }
+            when 'H'                { 'speech_balloon' } # better match?
+            when 'Y'                { 'heavy_check_mark' }
+
+            default {
+                note "Unknown icon name: { $_ }";
+                $_
+            }
+        };
+
+        make TWiki::Icon.new(:$name);
+    }
+
+    method variable($/) {
+        make $/[0].hash.values[0].ast;
     }
 
     method pre-verbatim($/) {
