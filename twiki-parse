@@ -239,6 +239,7 @@ grammar TWiki::Grammar {
             || <inline-image>
             || <html-link>
             || <literal>
+            || <unknown-tag>
             || <not-a-link>
             || <normal-word>
         )+
@@ -331,6 +332,13 @@ grammar TWiki::Grammar {
 
     token literal {
         <capture-tag: 'literal'>
+    }
+
+    # We can't allow "<" inside normal words because this would consume any
+    # tags following them, so we have to handle all occurrences of "<"
+    # separately, even it's not always special.
+    token unknown-tag {
+        '<' \N+? '>'
     }
 
     token not-a-link {
@@ -746,6 +754,7 @@ class TWiki::Page {
 class TWiki::Actions {
     has $.file;
     has Bool $!toc = False;
+    has Bool $.debug = False;
 
     method TOP($/) {
         # Get rid of paragraphs without any corresponding AST node.
@@ -943,6 +952,11 @@ class TWiki::Actions {
         );
     }
 
+    method unknown-tag($/) {
+        note qq{Unknown tag "$/" in $.file.} if $.debug;
+        make TWiki::PlainText.new(~$/);
+    }
+
     method not-a-link($/) {
         make TWiki::PlainText.new(~$/[0]);
     }
@@ -1092,7 +1106,7 @@ sub MAIN(*@twiki-files, Str :$out-dir, Bool :$debug, Bool :$stop-on-first-error)
     for @twiki-files -> $twiki-file {
         my $input = $twiki-file.IO.slurp;
 
-        my $actions = TWiki::Actions.new(file => $twiki-file);
+        my $actions = TWiki::Actions.new(file => $twiki-file, :$debug);
         my $result = try TWiki::Grammar.parse($input, :actions($actions)).ast;
         if ! $result {
             note "Failed to parse $twiki-file as TWiki page.";
