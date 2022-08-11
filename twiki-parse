@@ -787,25 +787,6 @@ class TWiki::Table {
 class TWiki::Text {
     has @.elements;
 
-    method new(*@elements-orig) {
-        # Coalesce consecutive plain text arguments into a single one.
-        my Bool $last-is-plain-text = False;
-
-        my @elements;
-        for @elements-orig -> $element {
-            my Bool $this-is-plain-text = $element ~~ TWiki::PlainText;
-
-            if $last-is-plain-text && $this-is-plain-text {
-                @elements.tail.append: $element.text;
-            } else {
-                @elements.append: $element;
-                $last-is-plain-text = $this-is-plain-text;
-            }
-        }
-
-        self.bless(:@elements)
-    }
-
     method gist() {
         chomp qq:to/END/;
         { self.^name }(
@@ -817,6 +798,29 @@ class TWiki::Text {
     method to-adoc() {
         @.elements».to-adoc.join
     }
+}
+
+# This function performs an optimization of the parse tree and creates Text
+# only if necessary, i.e. if there are elements other than just PlainText ones
+# in the provided array. Otherwise it coalesces them all into a single
+# PlainText and just returns it instead.
+sub twiki-text(*@elements-orig) {
+    # Coalesce consecutive plain text arguments into a single one.
+    my Bool $last-is-plain-text = False;
+
+    my @elements;
+    for @elements-orig -> $element {
+        my Bool $this-is-plain-text = $element ~~ TWiki::PlainText;
+
+        if $last-is-plain-text && $this-is-plain-text {
+            @elements.tail.append: $element.text;
+        } else {
+            @elements.append: $element;
+            $last-is-plain-text = $this-is-plain-text;
+        }
+    }
+
+    @elements.elems == 1 ?? @elements.tail !! TWiki::Text.new(:@elements)
 }
 
 class TWiki::Page {
@@ -1139,7 +1143,7 @@ class TWiki::Actions {
             @elements.append: $span.ast;
         }
 
-        make TWiki::Text.new(@elements);
+        make twiki-text(@elements);
     }
 
     method list-bullet($/) {
@@ -1174,7 +1178,7 @@ class TWiki::Actions {
 
         make TWiki::Header.new(
             level => $/<level>.chars,
-            text  => TWiki::Text.new($text.ast)
+            text  => twiki-text($text.ast)
         );
     }
 
@@ -1225,7 +1229,7 @@ class TWiki::Actions {
     }
 
     method normal-text($/) {
-        make TWiki::Text.new($<text-span>.ast);
+        make twiki-text($<text-span>.ast);
     }
 }
 
