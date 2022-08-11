@@ -30,9 +30,9 @@ sub get-title-from-twiki-file(Str $file) {
         .subst(/(<[a..z]>) (<[A..Z]>)/, { "$0 $1" }, :g)
 }
 
-sub indent(Int $indent, Str $text) {
-    my $prepend = '    ' x $indent;
-    $prepend ~ join("\n" ~ $prepend, $text.split("\n"))
+sub indent(Str $text) {
+    my $indent = '    ';
+    $indent ~ join("\n" ~ $indent, $text.split("\n"))
 }
 
 grammar TWiki::Grammar {
@@ -477,8 +477,8 @@ class TWiki::Metainfo {
 class TWiki::Verbatim {
     has $.text;
 
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }(\n$.text\n)")
+    method gist() {
+        "{ self.^name }(\n{ indent($.text) }\n)"
     }
 
     method to-adoc() {
@@ -494,8 +494,8 @@ class TWiki::Verbatim {
 }
 
 class TWiki::Ignored {
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }")
+    method gist() {
+        self.^name
     }
 
     method to-adoc() {
@@ -504,8 +504,8 @@ class TWiki::Ignored {
 }
 
 class TWiki::LineBreak {
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }")
+    method gist() {
+        self.^name
     }
 
     method to-adoc() {
@@ -517,8 +517,8 @@ class TWiki::FormattedText {
     has $.delimiter;
     has $.text;
 
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }({ $.delimiter }{ $.text }{ $.delimiter })")
+    method gist() {
+        "{ self.^name }({ $.delimiter }{ $.text }{ $.delimiter })"
     }
 
     method to-adoc() {
@@ -537,8 +537,8 @@ class TWiki::PlainText {
         $.text ~= $text;
     }
 
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }($.text)")
+    method gist() {
+        "{ self.^name }($.text)"
     }
 
     method to-adoc() {
@@ -552,8 +552,8 @@ class TWiki::Image {
     has $.width;
     has $.height;
 
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }($.src)")
+    method gist() {
+        "{ self.^name }($.src)"
     }
 
     method attrs() {
@@ -587,8 +587,8 @@ class TWiki::InlineImage is TWiki::Image {
 class TWiki::BulletListItem {
     has $.text;
 
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }({ $.text.gist })")
+    method gist() {
+        "{ self.^name }({ $.text.gist })"
     }
 
     method to-adoc(Int $level) {
@@ -602,8 +602,8 @@ class TWiki::BulletListItem {
 class TWiki::NumberedListItem {
     has $.text;
 
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }({ $.text.gist })")
+    method gist() {
+        "{ self.^name }({ $.text.gist })"
     }
 
     method to-adoc(Int $level) {
@@ -624,10 +624,12 @@ class TWiki::DefListItem {
 class TWiki::List {
     has @.items;
 
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }(\n" ~
-            join("\n", @.items».gist(1)) ~
-        "\n)")
+    method gist() {
+        chomp qq:to/END/;
+        { self.^name }(
+        { indent(join("\n", @.items».gist)) }
+        )
+        END
     }
 
     method to-adoc(Int $level = 0) {
@@ -645,8 +647,8 @@ class TWiki::List {
 class TWiki::Icon {
     has Str $.name;
 
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }($.name)")
+    method gist() {
+        "{ self.^name }($.name)"
     }
 
     method to-adoc() {
@@ -659,8 +661,8 @@ class TWiki::Icon {
 class TWiki::ColorStart {
     has Str $.name;
 
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }($.name)")
+    method gist() {
+        "{ self.^name }($.name)"
     }
 
     method to-adoc() {
@@ -671,8 +673,8 @@ class TWiki::ColorStart {
 }
 
 class TWiki::ColorEnd {
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }")
+    method gist() {
+        self.^name
     }
 
     method to-adoc() {
@@ -683,8 +685,8 @@ class TWiki::ColorEnd {
 class TWiki::HTMLSpan {
     has $.html;
 
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }(\n{ indent(1, $.html) }\n)")
+    method gist() {
+        "{ self.^name }(\n{ indent($.html) }\n)"
     }
 
     method to-adoc() {
@@ -695,8 +697,8 @@ class TWiki::HTMLSpan {
 class TWiki::HTMLFragment {
     has $.html is rw;
 
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }(\n$.html\n)")
+    method gist() {
+        "{ self.^name }(\n{ indent($.html) }\n)"
     }
 
     method to-adoc() {
@@ -713,8 +715,8 @@ class TWiki::Separator is TWiki::HTMLFragment {
         self.html = '<hr>';
     }
 
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }")
+    method gist() {
+        self.^name
     }
 }
 
@@ -722,11 +724,12 @@ class TWiki::Header {
     has Int $.level;
     has $.text;
 
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }($.level,\n" ~
-            $.text.gist(1) ~
-            "\n)"
+    method gist() {
+        chomp qq:to/END/;
+        { self.^name }($.level,
+        { indent($.text.gist) }
         )
+        END
     }
 
     method to-adoc() {
@@ -737,8 +740,8 @@ class TWiki::Header {
 class TWiki::TableRow {
     has Str @.cells;
 
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }({ @.cells })")
+    method gist() {
+        "{ self.^name }({ join(' | ', @.cells) })"
     }
 
     method to-adoc() {
@@ -750,11 +753,13 @@ class TWiki::Table {
     has Str @.headers;
     has @.rows;
 
-    method gist(Int $indent = 0) {
-        indent($indent, "{ self.^name }({ @.headers }\n" ~
-            join("\n", @.rows».gist(1)) ~
-            "\n)"
+    method gist() {
+        chomp qq:to/END/;
+        { self.^name }(
+        { indent(join(' | ', @.headers)) }
+        { indent(join("\n", @.rows».gist)) }
         )
+        END
     }
 
     method to-adoc() {
@@ -800,17 +805,12 @@ class TWiki::Text {
         self.bless(:@elements)
     }
 
-    method gist(Int $indent = 0) {
-        my @element-gists;
-        for @.elements -> $element {
-            @element-gists.append: $element
-                ?? $element.gist(1)
-                !! indent(1, '!!! MISSING AST NODE !!!')
-        }
-
-        indent($indent, "{ self.^name }(\n" ~
-            join("\n", @element-gists) ~
-        "\n)")
+    method gist() {
+        chomp qq:to/END/;
+        { self.^name }(
+        { indent(@.elements».gist.join("\n")) }
+        )
+        END
     }
 
     method to-adoc() {
@@ -825,7 +825,7 @@ class TWiki::Page {
 
     method gist() {
         "{ self.^name }[{ $.metainfo.gist }{ $.toc ?? ', toc' !! '' }]\n" ~
-        @.body».gist(1).join("\n")
+        indent(@.body».gist.join("\n"))
     }
 
     method to-adoc() {
