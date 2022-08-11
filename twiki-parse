@@ -47,7 +47,6 @@ grammar TWiki::Grammar {
     token metainfo {
         <topic-info>
         <topic-parent>?
-        <toc>?
     }
 
     token topic-info {
@@ -56,10 +55,6 @@ grammar TWiki::Grammar {
 
     token topic-parent {
         ^^ '%META:TOPICPARENT{' <metavar> '}%' \n
-    }
-
-    token toc {
-        ^^ '%TOC%' \n
     }
 
     token metavar {
@@ -228,6 +223,7 @@ grammar TWiki::Grammar {
     token text-span {
         (
             || <space>
+            || <toc>
             || <pre-verbatim>
             || <verbatim>
             || <nop>
@@ -256,6 +252,10 @@ grammar TWiki::Grammar {
         $<contents>=.*?
         \n?
         "</$tag>"
+    }
+
+    token toc {
+        '%TOC%'
     }
 
     token pre-verbatim {
@@ -413,26 +413,20 @@ class TWiki::Metainfo {
     has $.author;
     has Instant $.date;
     has $.parent;
-    has Bool $.toc;
 
     method gist() {
         my $opt-attrs = '';
         $opt-attrs ~= qq[, parent="$.parent"] if $.parent;
-        $opt-attrs ~= qq[, toc] if $.toc;
 
         qq[{ self.^name }(author="$.author", date={$.date.DateTime}$opt-attrs)]
     }
 
     method to-adoc() {
-        my $doc = qq:to/END/;
+         qq:to/END/;
         = { get-title-from-twiki-file($.file) }
         :author: $.author
         :revdate: { $.date.DateTime }
         END
-
-        $doc ~= ":toc:\n" if $.toc;
-
-        $doc
     }
 }
 
@@ -733,20 +727,25 @@ class TWiki::Text {
 
 class TWiki::Page {
     has TWiki::Metainfo $.metainfo;
+    has Bool $.toc;
     has @.body;
 
     method gist() {
-        "{ self.^name }[{ $.metainfo.gist }]\n" ~
+        "{ self.^name }[{ $.metainfo.gist }{ $.toc ?? ', toc' !! '' }]\n" ~
         @.body».gist(1).join("\n")
     }
 
     method to-adoc() {
-        join("\n", $.metainfo.to-adoc, @.body».to-adoc) ~ "\n"
+        my $doc = $.metainfo.to-adoc;
+        $doc ~= ":toc:\n" if $.toc;
+
+        $doc ~ "\n" ~ join("\n", @.body».to-adoc) ~ "\n"
     }
 }
 
 class TWiki::Actions {
     has $.file;
+    has Bool $!toc = False;
 
     method TOP($/) {
         # Get rid of paragraphs without any corresponding AST node.
@@ -775,6 +774,7 @@ class TWiki::Actions {
 
         make TWiki::Page.new(
             metainfo => $<metainfo>.ast,
+            toc      => $!toc,
             body     => @paragraphs,
         );
     }
@@ -787,7 +787,6 @@ class TWiki::Actions {
             author => $info<author>,
             date   => $info<date>,
             parent => $parent ?? ~$parent.ast !! Nil,
-            toc    => so $<toc>
         );
     }
 
@@ -838,6 +837,14 @@ class TWiki::Actions {
 
     method space($/) {
         make TWiki::PlainText.new(~$/);
+    }
+
+    method toc($/) {
+        $!toc = True;
+
+        # Although this token is only recognized for its side effect, we still
+        # must have something corresponding to it in the AST node.
+        make TWiki::Ignored.new();
     }
 
     method pre-verbatim($/) {
