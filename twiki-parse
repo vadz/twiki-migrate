@@ -634,14 +634,7 @@ class TWiki::List {
     }
 
     method to-adoc(Int $level = 0) {
-        my $adoc = @.items».to-adoc($level + 1).join;
-
-        # Separate top level lists with new lines.
-        if $level == 0 {
-            $adoc ~= "\n"
-        }
-
-        $adoc
+        @.items».to-adoc($level + 1).join("\n");
     }
 }
 
@@ -837,7 +830,7 @@ class TWiki::Page {
         my $doc = $.metainfo.to-adoc;
         $doc ~= ":toc:\n" if $.toc;
 
-        $doc ~ "\n" ~ join("\n", @.body».to-adoc) ~ "\n"
+        $doc ~ "\n" ~ join("\n\n", @.body».to-adoc) ~ "\n"
     }
 }
 
