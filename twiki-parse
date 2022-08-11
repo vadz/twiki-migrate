@@ -77,7 +77,7 @@ grammar TWiki::Grammar {
             || <html-fragment>
             || <table>
             || <.attachment>
-            || <.ignored-meta>
+            || <.ignored-directive>
             || <normal-text>
         )
 
@@ -390,11 +390,16 @@ grammar TWiki::Grammar {
         ]
     }
 
-    token ignored-meta {
-        ^^ '%META:'
+    token ignored-directive {
+        ^^ '%' <!before 'ATTACHURL%' || 'ICON' || 'H%' || 'P%' || 'X%' || 'Y%'>
         [
-            || [ FORM || FIELD || PREFERENCE || TOPICMOVED ] '{'  \N+? '}%'
-            || { die "Unknown %META directive near position { $/.pos() + 5 }" }
+            [
+                || 'META:' [ FORM || FIELD || PREFERENCE || TOPICMOVED ]
+                || 'EDITPREFERENCES'
+                || 'INCLUDE'
+                || 'SEARCH'
+            ] '{'  \N+? '}%'
+            || { die "Unknown directive near position { $/.pos() + 5 }" }
         ]
     }
 
