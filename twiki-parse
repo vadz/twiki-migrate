@@ -270,6 +270,8 @@ grammar TWiki::Grammar {
         '%' (
             || <toc>
             || <icon>
+            || <color-start>
+            || <color-end>
             || <ignored-directive>
         ) '%'
     }
@@ -287,6 +289,14 @@ grammar TWiki::Grammar {
         || $<name>='TODO'
     }
 
+    token color-start {
+        || 'RED' || 'YELLOW' || 'ORANGE' || 'PINK' || 'PURPLE' || 'TEAL'
+        || 'NAVY' || 'BLUE' || 'AQUA' || 'LIME' || 'GREEN' || 'OLIVE'
+        || 'MAROON' || 'BROWN' || 'BLACK' || 'GRAY' || 'SILVER' || 'WHITE'
+    }
+
+    token color-end {
+        'ENDCOLOR'
     }
 
     token pre-verbatim {
@@ -649,6 +659,30 @@ class TWiki::Icon {
     }
 }
 
+class TWiki::ColorStart {
+    has Str $.name;
+
+    method gist(Int $indent = 0) {
+        indent($indent, "{ self.^name }($.name)")
+    }
+
+    method to-adoc() {
+        # We have to pass the colours through to HTML as there is no direct
+        # support for them in Asciidoc.
+        qq[+++<span style="color: { $.name.lc };">+++]
+    }
+}
+
+class TWiki::ColorEnd {
+    method gist(Int $indent = 0) {
+        indent($indent, "{ self.^name }")
+    }
+
+    method to-adoc() {
+        qq[+++</span>+++]
+    }
+}
+
 class TWiki::HTMLSpan {
     has $.html;
 
@@ -940,6 +974,17 @@ class TWiki::Actions {
         };
 
         make TWiki::Icon.new(:$name);
+    }
+
+    method color-start($/) {
+        # This is not ideal, as normally we should create a parent node and
+        # put the text between color start and end nodes under it, but this
+        # would complicate the grammar, so for now just use separate nodes.
+        make TWiki::ColorStart.new(name => ~$/);
+    }
+
+    method color-end($/) {
+        make TWiki::ColorEnd.new;
     }
 
     method variable($/) {
