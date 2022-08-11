@@ -194,7 +194,7 @@ grammar TWiki::Grammar {
 
     token table {
         ^^
-        [ '%TABLE{ ' <.metavar>+ % ' ' ' }%' \n ]?
+        [ '%TABLE{' \N+? '}%' \n ]?
         '|'
         [
             || [ <header-row> || <table-row> ] \n
