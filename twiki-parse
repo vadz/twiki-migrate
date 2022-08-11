@@ -349,7 +349,7 @@ grammar TWiki::Grammar {
     # TODO: exclude ! and [ too when links are supported.
     token normal-word {
         || <-[<*_=\n]> <[\w] + [! \[ \] . _ *]>*
-        || <!wb> [ '=' || '*' || '<=' || '>=' ] <!wb>
+        || <!wb> [ '=' || '*' || '<' || '<=' || '>=' || '>' ]
         || <wb> '=' <wb>
         || <wb> '==' <wb>
         || ^^ '*' <wb>
