@@ -227,6 +227,7 @@ grammar TWiki::Grammar {
             || <attached-image>
             || <variable>
             || <pre-verbatim>
+            || <pre>
             || <verbatim>
             || <nop>
             || <br>
@@ -303,6 +304,10 @@ grammar TWiki::Grammar {
 
     token pre-verbatim {
         '<pre>' <.ws> <capture-tag: 'verbatim'> \s*? '</pre>'
+    }
+
+    token pre {
+        <capture-tag: 'pre'>
     }
 
     token verbatim {
@@ -994,6 +999,14 @@ class TWiki::Actions {
     }
 
     method pre-verbatim($/) {
+        make TWiki::HTMLFragment.new(
+            html => ~$<capture-tag><contents>
+        );
+    }
+
+    method pre($/) {
+        # This should probably handle TWiki markup in the contents, but we
+        # don't need to do it currently.
         make TWiki::HTMLFragment.new(
             html => ~$<capture-tag><contents>
         );
