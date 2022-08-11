@@ -535,36 +535,40 @@ class TWiki::PlainText {
 }
 
 class TWiki::Image {
-    has $.src;
+    has $.src is required;
     has $.alt;
     has $.width;
     has $.height;
-
-    has $.image-macro is rw;
 
     method gist(Int $indent = 0) {
         indent($indent, "{ self.^name }($.src)")
     }
 
-    method to-adoc() {
-        my $extra_attrs = '';
+    method attrs() {
+        my $attrs = '';
+        if $.alt {
+            $attrs = $.alt
+        }
         if $.width || $.height {
-            $extra_attrs = ",$.width,$.height"
+            $attrs ~= ",$.width,$.height"
         }
 
-        "{$.image-macro}{$.src}[{$.alt}{$extra_attrs}]"
+        $attrs
     }
 }
 
 class TWiki::BlockImage is TWiki::Image {
-    submethod TWEAK {
-        self.image-macro = 'image::';
+    method to-adoc() {
+        qq:to/END/;
+
+        image::{ $.src }[{ self.attrs }]
+        END
     }
 }
 
 class TWiki::InlineImage is TWiki::Image {
-    submethod TWEAK {
-        self.image-macro = 'image:';
+    method to-adoc() {
+        "image:{ $.src }[{ self.attrs }]"
     }
 }
 
