@@ -241,6 +241,7 @@ grammar TWiki::Grammar {
             || <inline-image>
             || <html-link>
             || <literal>
+            || <sticky-check>
             || <unknown-tag>
             || <not-a-link>
             || <normal-word>
@@ -373,6 +374,12 @@ grammar TWiki::Grammar {
 
     token literal {
         <capture-tag: 'literal'>
+    }
+
+    # The only occurrences of <sticky> in our pages are these ones, so just
+    # hardcode them instead of dealing with it more generally.
+    token sticky-check {
+        '<sticky>&check;</sticky>'
     }
 
     # We can't allow "<" inside normal words because this would consume any
@@ -1079,6 +1086,12 @@ class TWiki::Actions {
     method literal($/) {
         make TWiki::HTMLFragment.new(
             html => ~$<capture-tag><contents>
+        );
+    }
+
+    method sticky-check($/) {
+        make TWiki::Icon.new(
+            name => 'heavy_check_mark'
         );
     }
 
