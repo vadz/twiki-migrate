@@ -100,7 +100,7 @@ grammar TWiki::Grammar {
         # This definition of value doesn't allow using quotes of the other
         # kind inside the attribute value, which is allowed in theory, but is
         # not needed in practice, and it's much simpler to forbid it.
-        $<name>=[\w+] '=' $<quote>=<['"]> ~ $<quote> $<value>=<-['"]>+
+        $<name>=[\w+] '=' $<quote>=<['"]> ~ $<quote> $<value>=<-['"]>*
     }
 
     token image-tag {
