@@ -47,6 +47,7 @@ grammar TWiki::Grammar {
     token metainfo {
         <topic-info>
         <topic-parent>?
+        <toc>?
     }
 
     token topic-info {
@@ -55,6 +56,10 @@ grammar TWiki::Grammar {
 
     token topic-parent {
         ^^ '%META:TOPICPARENT{' <metavar> '}%' \n
+    }
+
+    token toc {
+        ^^ '%TOC%' \n
     }
 
     token metavar {
@@ -398,18 +403,26 @@ class TWiki::Metainfo {
     has $.author;
     has Instant $.date;
     has $.parent;
+    has Bool $.toc;
 
     method gist() {
-        my $parent-attr = $.parent ?? qq[, parent="$.parent"] !! '';
-        qq[{ self.^name }(author="$.author", date={$.date.DateTime}$parent-attr)]
+        my $opt-attrs = '';
+        $opt-attrs ~= qq[, parent="$.parent"] if $.parent;
+        $opt-attrs ~= qq[, toc] if $.toc;
+
+        qq[{ self.^name }(author="$.author", date={$.date.DateTime}$opt-attrs)]
     }
 
     method to-adoc() {
-        qq:to/END/;
+        my $doc = qq:to/END/;
         = { get-title-from-twiki-file($.file) }
         :author: $.author
         :revdate: { $.date.DateTime }
         END
+
+        $doc ~= ":toc:\n" if $.toc;
+
+        $doc
     }
 }
 
@@ -764,6 +777,7 @@ class TWiki::Actions {
             author => $info<author>,
             date   => $info<date>,
             parent => $parent ?? ~$parent.ast !! Nil,
+            toc    => so $<toc>
         );
     }
 
