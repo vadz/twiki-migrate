@@ -223,6 +223,7 @@ grammar TWiki::Grammar {
         (
             || <space>
             || <percent-sign>
+            || <attached-image>
             || <variable>
             || <pre-verbatim>
             || <verbatim>
@@ -259,6 +260,10 @@ grammar TWiki::Grammar {
     # unknown variables when we encounter them in any other place.
     token percent-sign {
         '%' <?before \s>
+    }
+
+    token attached-image {
+        '%ATTACHURL%/' (\S+)
     }
 
     token variable {
@@ -907,6 +912,11 @@ class TWiki::Actions {
 
     method percent-sign($/) {
         make TWiki::PlainText.new(~$/);
+    }
+
+    method attached-image($/) {
+        my $src = ~$/[0];
+        make TWiki::BlockImage.new(:$src);
     }
 
     method icon($/) {
