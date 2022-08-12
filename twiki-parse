@@ -391,7 +391,7 @@ grammar TWiki::Grammar {
     # tags following them, so we have to handle all occurrences of "<"
     # separately, even it's not always special.
     token unknown-tag {
-        '<' \N+? '>'
+        '<' <-[/]> \N*? '>'
     }
 
     token not-a-link {
@@ -411,7 +411,8 @@ grammar TWiki::Grammar {
     # TODO: exclude ! and [ too when links are supported.
     token normal-word {
         || <-[<*_=\n]> <[\w] + [! \[ \] . _ *]>*
-        || <!wb> [ '=' || '*' || '<' || '<=' || '>=' || '>' ]
+        || <!wb> [ '=' || '*' || '<=' || '>=' || '>' ]
+        || <!wb> '<' <!before '/'>
         || <wb> '='
         || <wb> '==' <wb>
         || ^^ '*' <wb>
@@ -1110,7 +1111,7 @@ class TWiki::Actions {
     }
 
     method unknown-tag($/) {
-        note qq{Unknown tag "$/" in $.file.} if $.debug;
+        note qq{Unknown tag "$/" in $.file, parsing will fail.};
         make TWiki::PlainText.new(~$/);
     }
 
