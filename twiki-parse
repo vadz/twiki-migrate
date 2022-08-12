@@ -1154,7 +1154,7 @@ class TWiki::Actions {
     }
 
     method unknown-tag($/) {
-        note qq[Unknown tag "$/" in $.file at position { $/.pos() }.];
+        note qq[Unknown tag "$/" in $.file at position { $/.pos() }.] if $.debug;
         make TWiki::PlainText.new(~$/);
     }
 
