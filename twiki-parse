@@ -243,8 +243,8 @@ grammar TWiki::Grammar {
             || <html-link>
             || <literal>
             || <sticky-check>
-            || <unknown-tag>
             || <not-a-link>
+            || <unknown-tag>
             || <normal-word>
         )+
     }
@@ -395,7 +395,8 @@ grammar TWiki::Grammar {
     }
 
     token not-a-link {
-        '!' ( [ <upper> \w+ ]+ )
+        || '!' ( <upper> \w+ )
+        || '<noautolink>' ( <-[<\n]>+ ) '</noautolink>'
     }
 
     # We need to allow "="s not at the start or end of the word (knowing that
