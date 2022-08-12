@@ -233,6 +233,7 @@ grammar TWiki::Grammar {
             || <nop>
             || <br>
             || <strong>
+            || <strike>
             || <em>
             || <bold>
             || <bold-italic>
@@ -329,6 +330,10 @@ grammar TWiki::Grammar {
 
     token strong {
         <capture-tag: 'strong'>
+    }
+
+    token strike {
+        '<strike>' <text-span> '</strike>'
     }
 
     token em {
@@ -543,6 +548,21 @@ class TWiki::FormattedText {
 
     method to-adoc() {
         $.delimiter ~ $.text ~ $.delimiter.flip
+    }
+}
+
+class TWiki::StrikeThrough {
+    has $.contents;
+
+    method gist() {
+        "{ self.^name }(\n{ indent($.contents.gist) }\n)"
+    }
+
+    method to-adoc() {
+        # This could be implemented as [.line-through]#...#, but we don't have
+        # support for this in the CSS currently, so implement this via HTML
+        # pass through for now.
+        "+++<strike>+++{ $.contents.to-adoc }+++</strike>+++"
     }
 }
 
@@ -1054,6 +1074,12 @@ class TWiki::Actions {
                 delimiter => '*',
                 text      => ~$<capture-tag><contents>
             );
+    }
+
+    method strike($/) {
+        make TWiki::StrikeThrough.new(
+            contents => twiki-text($<text-span>.ast)
+        );
     }
 
     method em($/) {
