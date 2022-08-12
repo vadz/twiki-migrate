@@ -246,6 +246,7 @@ grammar TWiki::Grammar {
             || <literal>
             || <sticky-check>
             || <not-a-link>
+            || <ignored-tag>
             || <unknown-tag>
             || <normal-word>
         )+
@@ -382,6 +383,19 @@ grammar TWiki::Grammar {
     # hardcode them instead of dealing with it more generally.
     token sticky-check {
         '<sticky>&check;</sticky>'
+    }
+
+    # We can't have HTML lists intermingled with normal markup, it could (and
+    # would) result in markup being mangled and ignored, e.g. Asciidoc refuses
+    # to have headers inside list items. And it seems better to drop the lists
+    # than the rest of the markup.
+    token ignored-tag {
+        || '<li' ' dir="ltr"'? '>'
+        || '<ol>'
+        || '<ul>'
+        || '</li>'
+        || '</ol>'
+        || '</ul>'
     }
 
     # We can't allow "<" inside normal words because this would consume any
@@ -1133,6 +1147,10 @@ class TWiki::Actions {
         make TWiki::Icon.new(
             name => 'heavy_check_mark'
         );
+    }
+
+    method ignored-tag($/) {
+        make TWiki::Ignored.new();
     }
 
     method unknown-tag($/) {
