@@ -229,6 +229,7 @@ grammar TWiki::Grammar {
             || <pre-verbatim>
             || <pre>
             || <verbatim>
+            || <p>
             || <nop>
             || <br>
             || <strong>
@@ -312,6 +313,10 @@ grammar TWiki::Grammar {
 
     token verbatim {
         <capture-tag: 'verbatim'>
+    }
+
+    token p {
+        '<p' [\h+ <-[>]>+]? '>' <text-span> '</p>'
     }
 
     token nop {
@@ -1017,6 +1022,13 @@ class TWiki::Actions {
     method verbatim($/) {
         make TWiki::Verbatim.new(
             text => ~$<capture-tag><contents>
+        );
+    }
+
+    method p($/) {
+        make twiki-text(
+            $<text-span>.ast,
+            TWiki::LineBreak.new()
         );
     }
 
