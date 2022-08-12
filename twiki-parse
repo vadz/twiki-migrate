@@ -1149,7 +1149,7 @@ class TWiki::Actions {
     }
 
     method unknown-tag($/) {
-        note qq{Unknown tag "$/" in $.file, parsing will fail.};
+        note qq[Unknown tag "$/" in $.file at position { $/.pos() }.];
         make TWiki::PlainText.new(~$/);
     }
 
