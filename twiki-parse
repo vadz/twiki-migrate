@@ -366,21 +366,8 @@ grammar TWiki::Grammar {
         '=' $<text>=\N+? '=' <?before <[\s , . : ; ( )]>>
     }
 
-    # This one is special because span tags can be nested, but we handle only
-    # the cases that really happen in practice instead of writing a general
-    # rule for arbitrarily nested tags.
     token span {
-        || <.span-open> \N*? <.span-open> \N*? <.span-open> \N+? <.span-close> \N*? <.span-close> \N*? <.span-close>
-        || <.span-open> \N*? <.span-open> \N+? <.span-close> \N*? <.span-close>
-        || <.span-open> \N+? <.span-close>
-    }
-
-    token span-open {
-        '<span' [\h+ <-[>]>+]? '>'
-    }
-
-    token span-close {
-        '</span>'
+        '<span' [\h+ <-[>]>+]? '>' <text-span> '</span>'
     }
 
     token html-link {
