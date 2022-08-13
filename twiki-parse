@@ -929,12 +929,30 @@ class TWiki::Page {
 class TWiki::Actions {
     has $.file;
     has Str:D $.wiki-links-root is required;
+    has Str:D $.attachments-root is required;
     has Bool:D $.warn-unknown = False;
 
     has Bool $!toc = False;
 
     submethod TWEAK {
         ensure-trailing-slash($!wiki-links-root);
+        ensure-trailing-slash($!attachments-root);
+    }
+
+    # Expand %ATTACHURL% and %ATTACHURLPATH% TWiki variables in the path if
+    # they exist.
+    method !expand-attachment-path(Str $path) {
+        $path.subst(
+            rx{ ^^ '%' ATTACHURL [ PATH ]? '%' <?before '/'> },
+            $.attachments-root ~ get-name-from-twiki-file($.file)
+        );
+    }
+
+    # Create a full path for an attachment from a relative path.
+    method !make-attachment-path(Str $name) {
+        note qq{Unexpected attachment name "$name" in $.file} if '/' ∈ $name;
+
+        $.attachments-root ~ get-name-from-twiki-file($.file) ~ '/' ~ $name
     }
 
     method TOP($/) {
@@ -1042,7 +1060,7 @@ class TWiki::Actions {
     }
 
     method attached-image($/) {
-        my $src = ~$/[0];
+        my $src = self!make-attachment-path(~$/[0]);
         make TWiki::BlockImage.new(:$src);
     }
 
@@ -1216,7 +1234,7 @@ class TWiki::Actions {
 
     method forced-link($/) {
         make TWiki::Link.new(
-            link => ~$<link>,
+            link => self!expand-attachment-path(~$<link>),
             text => $<text> ?? ~$<text> !! Str
         );
     }
@@ -1235,6 +1253,12 @@ class TWiki::Actions {
     method image-tag($/) {
         my %attributes;
         %attributes.append: $<attribute>.list».ast;
+
+        if 'src' ∈ %attributes {
+            %attributes<src> = self!expand-attachment-path(%attributes<src>);
+        } else {
+            note qq[Image without "src" in $.file at position { $/.pos() }.];
+        }
 
         make %attributes;
     }
@@ -1404,6 +1428,8 @@ sub MAIN(*@twiki-files,
         Str :$out-dir,              #= Directory for the output files.
         Str :$wiki-links-root       #= Prefix to use for WikiLinks.
             = '/',
+        Str :$attachments-root      #= Prefix to use for the attachments.
+            = '/uploads',
         Bool :$warn-unknown,        #= Warn about unknown tags.
         Bool :$debug,               #= Dump AST.
     ) {
@@ -1413,6 +1439,7 @@ sub MAIN(*@twiki-files,
 
     my %actions-options;
     %actions-options.append({ :$wiki-links-root });
+    %actions-options.append({ :$attachments-root });
     %actions-options.append({ :$warn-unknown }) if $warn-unknown;
 
     my @conversions;
