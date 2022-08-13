@@ -877,7 +877,6 @@ class TWiki::Page {
 class TWiki::Actions {
     has $.file;
     has Bool $!toc = False;
-    has Bool $.debug = False;
 
     method TOP($/) {
         # Get rid of paragraphs without any corresponding AST node.
@@ -1148,7 +1147,7 @@ class TWiki::Actions {
     }
 
     method unknown-tag($/) {
-        note qq[Unknown tag "$/" in $.file at position { $/.pos() }.] if $.debug;
+        note qq[Unknown tag "$/" in $.file at position { $/.pos() }.] if $*TWIKI-DEBUG;
         make TWiki::PlainText.new(~$/);
     }
 
@@ -1291,45 +1290,67 @@ class TWiki::Actions {
     }
 }
 
-sub MAIN(*@twiki-files, Str :$out-dir, Bool :$debug, Bool :$stop-on-first-error) {
-    # Process command-line arguments and read the input files.
-    sub log-debug($msg) {
-        note $msg if $debug;
+class TWiki::Result {
+    has $.error;
+    has $.adoc;
+    has $.ast;
+}
+
+sub convert-twiki-to-adoc(Str $file) {
+    my $input = $file.IO.slurp;
+    my $actions = TWiki::Actions.new(:$file);
+    my $ast = try TWiki::Grammar.parse($input, :$actions).ast;
+    my ($adoc, $error);
+    if !$ast {
+        $error = "Failed to parse $file as TWiki page";
+        if $! {
+            $error ~= ": $!"
+        }
+    } else {
+        $adoc = try $ast.to-adoc;
+        if $! {
+            $error = "Failed to convert $file to Asciidoc: $!\n{ $!.backtrace }";
+        }
     }
 
+    return $file => TWiki::Result.new(:$error, :$adoc, :$ast)
+}
+
+sub MAIN(*@twiki-files, Str :$out-dir, Bool :$debug, Bool :$stop-on-first-error) {
     if $out-dir {
         $out-dir.IO.mkdir;
     }
 
-    my $rc = 0;
-    for @twiki-files -> $twiki-file {
-        my $input = $twiki-file.IO.slurp;
+    my $*TWIKI-DEBUG = $debug;
 
-        my $actions = TWiki::Actions.new(file => $twiki-file, :$debug);
-        my $result = try TWiki::Grammar.parse($input, :actions($actions)).ast;
-        if ! $result {
-            note "Failed to parse $twiki-file as TWiki page.";
-            note $! if $!;
+    my @conversions;
+
+    for @twiki-files -> $twiki-file {
+        @conversions.append: start convert-twiki-to-adoc($twiki-file);
+    }
+
+    my $rc = 0;
+    for await @conversions {
+        my ($file, $result) = ($_.key, $_.value);
+        if $result.error {
+            note $result.error;
 
             $rc = 1;
 
-            last if $stop-on-first-error;
-        } else {
-            log-debug $result;
+            if $stop-on-first-error {
+                last
+            } else {
+                next
+            }
+        }
 
-            if $out-dir {
-                try {
-                    $out-dir.IO.add(
-                        get-name-from-twiki-file($twiki-file) ~ '.adoc'
-                    ).spurt: $result.to-adoc
-                }
+        note $result.ast if $debug;
 
-                if $! {
-                    note "Failed to convert $twiki-file to Asciidoc: $!\n{ $!.backtrace }";
-                    $rc = 2;
-
-                    last if $stop-on-first-error;
-                }
+        if $out-dir {
+            try {
+                $out-dir.IO.add(
+                    get-name-from-twiki-file($file) ~ '.adoc'
+                ).spurt: $result.adoc
             }
         }
     }
