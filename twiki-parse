@@ -256,6 +256,7 @@ grammar TWiki::Grammar {
             || <not-a-link>
             || <ignored-tag>
             || <unknown-tag>
+            || <forced-link>
             || <wiki-link>
             || <normal-word>
         )+
@@ -413,6 +414,12 @@ grammar TWiki::Grammar {
     token not-a-link {
         || '!' ( <upper> \w+ )
         || '<noautolink>' ( <-[<\n]>+ ) '</noautolink>'
+    }
+
+    token forced-link {
+        '[[' $<link>=<-[\]]>+ ']'
+        [ '[' $<text>=<-[\]]>+ ']' ]?
+        ']'
     }
 
     token wiki-link {
@@ -1179,6 +1186,13 @@ class TWiki::Actions {
 
     method not-a-link($/) {
         make TWiki::PlainText.new(~$/[0]);
+    }
+
+    method forced-link($/) {
+        make TWiki::Link.new(
+            link => ~$<link>,
+            text => $<text> ?? ~$<text> !! Str
+        );
     }
 
     method wiki-link($/) {
