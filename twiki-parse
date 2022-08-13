@@ -620,6 +620,20 @@ class TWiki::PlainText {
     }
 }
 
+class TWiki::Icon {
+    has Str $.name;
+
+    method gist() {
+        "{ self.^name }($.name)"
+    }
+
+    method to-adoc() {
+        # We use GitHub-specific icon names as it seems to be the only thing
+        # which actually works when rendering.
+        "+++:$.name:+++"
+    }
+}
+
 class TWiki::Image {
     has $.src is required;
     has $.alt;
@@ -641,10 +655,21 @@ class TWiki::Image {
 
         $attrs
     }
+
+    # Some images are actually icons and should be represented as such.
+    method is-todo-icon() {
+        $.src eq '%ICONURL{todo}%'
+    }
+
+    method adoc-todo-icon {
+        TWiki::Icon.new(name => 'stop_sign').to-adoc;
+    }
 }
 
 class TWiki::BlockImage is TWiki::Image {
     method to-adoc() {
+        return self.adoc-todo-icon if self.is-todo-icon;
+
         qq:to/END/;
 
         image::{ $.src }[{ self.attrs }]
@@ -654,6 +679,8 @@ class TWiki::BlockImage is TWiki::Image {
 
 class TWiki::InlineImage is TWiki::Image {
     method to-adoc() {
+        return self.adoc-todo-icon if self.is-todo-icon;
+
         "image:{ $.src }[{ self.attrs }]"
     }
 }
@@ -708,20 +735,6 @@ class TWiki::List {
 
     method to-adoc(Int $level = 0) {
         @.items».to-adoc($level + 1).join("\n");
-    }
-}
-
-class TWiki::Icon {
-    has Str $.name;
-
-    method gist() {
-        "{ self.^name }($.name)"
-    }
-
-    method to-adoc() {
-        # We use GitHub-specific icon names as it seems to be the only thing
-        # which actually works when rendering.
-        "+++:$.name:+++"
     }
 }
 
