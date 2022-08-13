@@ -78,7 +78,7 @@ grammar TWiki::Grammar {
             || <block-image>
             || <list-items>
             || <table>
-            || <.attachment>
+            || <attachment>
             || <normal-text>
         )
 
@@ -691,6 +691,30 @@ class TWiki::InlineImage is TWiki::Image {
     }
 }
 
+class TWiki::Attachment {
+    has Str $.name is required;
+    has Str $.url is required;
+    has Str $.attachment;
+    has Str $.comment;
+    has Str $.date;
+    has Str $.path;
+    has Str $.size;
+    has Str $.user;
+    has Str $.version;
+
+    method gist() {
+        "{ self.^name }($.name)"
+    }
+
+    method to-adoc() {
+        # There is no support for attachments per se, so just show them in a
+        # list.
+        chomp qq:to/END/;
+        * link:{ $.url }[$.name] $.comment (by $.user at { Instant.from-posix($.date).DateTime })
+        END
+    }
+}
+
 class TWiki::BulletListItem {
     has $.text;
 
@@ -1029,6 +1053,21 @@ class TWiki::Actions {
 
     method metavar($/) {
         make ~$/<name> => ~$/<value>;
+    }
+
+    method attachment($/) {
+        my %params;
+        for $<metavar>».ast -> $kv {
+            if $kv.key eq 'name' {
+                %params.append: (url => self!make-attachment-path($kv.value))
+            }
+
+            %params.append: $kv
+        }
+
+        make TWiki::Attachment.new(
+            | %params
+        );
     }
 
     method paragraph($/) {
