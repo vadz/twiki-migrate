@@ -1386,14 +1386,15 @@ sub convert-twiki-to-adoc(Str $file, %actions-options) {
     my ($adoc, $error);
     if !$ast {
         $error = "Failed to parse $file as TWiki page";
-        if $! {
-            $error ~= ": $!"
-        }
     } else {
         $adoc = try $ast.to-adoc;
         if $! {
-            $error = "Failed to convert $file to Asciidoc: $!\n{ $!.backtrace }";
+            $error = "Failed to convert $file to Asciidoc";
         }
+    }
+
+    if $! {
+        $error ~= ": $!\n{ $!.backtrace }"
     }
 
     return $file => TWiki::Result.new(:$error, :$adoc, :$ast)
