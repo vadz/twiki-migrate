@@ -909,6 +909,9 @@ class TWiki::Page {
 
 class TWiki::Actions {
     has $.file;
+    has Str:D $.wiki-links-root = '/';
+    has Bool:D $.warn-unknown = False;
+
     has Bool $!toc = False;
 
     method TOP($/) {
@@ -1180,7 +1183,7 @@ class TWiki::Actions {
     }
 
     method unknown-tag($/) {
-        note qq[Unknown tag "$/" in $.file at position { $/.pos() }.] if $*TWIKI-DEBUG;
+        note qq[Unknown tag "$/" in $.file at position { $/.pos() }.] if $.warn-unknown;
         make TWiki::PlainText.new(~$/);
     }
 
@@ -1197,7 +1200,8 @@ class TWiki::Actions {
 
     method wiki-link($/) {
         make TWiki::Link.new(
-            link => "/$/"
+            link => $.wiki-links-root ~ $/,
+            text => ~$/
         );
     }
 
@@ -1352,9 +1356,9 @@ class TWiki::Result {
     has $.ast;
 }
 
-sub convert-twiki-to-adoc(Str $file) {
+sub convert-twiki-to-adoc(Str $file, %actions-options) {
     my $input = $file.IO.slurp;
-    my $actions = TWiki::Actions.new(:$file);
+    my $actions = TWiki::Actions.new(:$file, | %actions-options);
     my $ast = try TWiki::Grammar.parse($input, :$actions).ast;
     my ($adoc, $error);
     if !$ast {
@@ -1372,17 +1376,23 @@ sub convert-twiki-to-adoc(Str $file) {
     return $file => TWiki::Result.new(:$error, :$adoc, :$ast)
 }
 
-sub MAIN(*@twiki-files, Str :$out-dir, Bool :$debug, Bool :$stop-on-first-error) {
+sub MAIN(*@twiki-files,
+        Str :$out-dir,              #= Directory for the output files.
+        Str :$wiki-links-root,      #= Prefix to use for WikiLinks.
+        Bool :$warn-unknown,        #= Warn about unknown tags.
+        Bool :$debug,               #= Dump AST.
+    ) {
     if $out-dir {
         $out-dir.IO.mkdir;
     }
 
-    my $*TWIKI-DEBUG = $debug;
+    my %actions-options;
+    %actions-options.append({ :$wiki-links-root }) if $wiki-links-root;
+    %actions-options.append({ :$warn-unknown }) if $warn-unknown;
 
     my @conversions;
-
     for @twiki-files -> $twiki-file {
-        @conversions.append: start convert-twiki-to-adoc($twiki-file);
+        @conversions.append: start convert-twiki-to-adoc($twiki-file, %actions-options);
     }
 
     my $rc = 0;
@@ -1393,11 +1403,7 @@ sub MAIN(*@twiki-files, Str :$out-dir, Bool :$debug, Bool :$stop-on-first-error)
 
             $rc = 1;
 
-            if $stop-on-first-error {
-                last
-            } else {
-                next
-            }
+            next
         }
 
         note $result.ast if $debug;
