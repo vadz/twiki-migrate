@@ -167,19 +167,28 @@ grammar TWiki::Grammar {
         '$ ' $<name>=<-[:\n]>+ ': ' $<text>=<.list-text: $level>
     }
 
-    # This is only good for non-nested tags, of course, but, luckily, this is
-    # mostly the case.
+    # We have to allow empty and multiline tag contents here.
+    #
+    # TODO: We ignore wiki markup inside HTML tags currently but it can
+    # actually be used there.
     token html-tag(Str $tag) {
-        "<$tag" .+? "</$tag>"
-    }
-
-    token html-comment {
-        '<!--' .+? '->'
+        "<$tag" [\h+ <-[>]>+]? '>'
+        [
+            || [\n <.text-span>?]+
+            || <.text-span>?
+        ]
+        "</$tag>"
     }
 
     token html-fragment {
-        || <html-tag: 'table'>
+        || <html-tag: 'col'>
         || <html-tag: 'div'>
+        || <html-tag: 'span'>
+        || <html-tag: 'table'>
+        || <html-tag: 'tbody'>
+        || <html-tag: 'td'>
+        || <html-tag: 'th'>
+        || <html-tag: 'tr'>
     }
 
     token table {
@@ -235,7 +244,6 @@ grammar TWiki::Grammar {
             || <italic>
             || <bold-fixed>
             || <fixed>
-            || <span>
             || <html-fragment>
             || <inline-image>
             || <html-link>
@@ -361,10 +369,6 @@ grammar TWiki::Grammar {
         # long as it's not followed by a space or punctuation (but not any
         # punctuation neither, as we can something like "=path=/root=" too).
         '=' $<text>=\N+? '=' <?before <[\s , . : ; ( )]>>
-    }
-
-    token span {
-        '<span' [\h+ <-[>]>+]? '>' <text-span> '</span>'
     }
 
     token html-link {
@@ -1118,12 +1122,6 @@ class TWiki::Actions {
         make TWiki::FormattedText.new(
             delimiter => '`',
             text      => ~$<text>
-        );
-    }
-
-    method span($/) {
-        make TWiki::HTMLSpan.new(
-            html => ~$/
         );
     }
 
