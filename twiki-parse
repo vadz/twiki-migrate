@@ -37,6 +37,8 @@ sub indent(Str $text) {
 
 grammar TWiki::Grammar {
     token TOP {
+        :my $*IN-TWIKI-TABLE = False;
+
         <metainfo>
 
         \n*
@@ -195,11 +197,13 @@ grammar TWiki::Grammar {
         ^^
         [ '%TABLE{' \N+? '}%' \n ]?
         '|'
+        { $*IN-TWIKI-TABLE = True }
         [
             || [ <header-row> || <table-row> ] \n
                [ '|' <table-row> ]* % \n
             || { die "Incorrect table syntax near position { $/.pos() + 3 }" }
         ]
+        { $*IN-TWIKI-TABLE = False }
     }
 
     # Redefine the default ws to _not_ include vertical whitespace such as \n.
@@ -221,7 +225,7 @@ grammar TWiki::Grammar {
     }
 
     token table-row {
-        <.ws> [ $<cell>=<-[|\n]>* '|' ]+ <.ws>
+        <.ws> [ $<cell>=(<text-span>?) '|' ]+ <.ws>
     }
 
     token text-span {
@@ -421,12 +425,16 @@ grammar TWiki::Grammar {
     #
     # TODO: exclude ! and [ too when links are supported.
     token normal-word {
+        [
         || <-[<*_=\n]> <[\w] + [! \[ \] . _ *]>*
         || <!wb> [ '=' || '*' || '<=' || '>=' || '>' ]
         || <!wb> '<' <!before '/'>
         || <wb> '='
         || <wb> '==' <wb>
         || ^^ '*' <wb>
+        ]
+        # Finally, forbid "|" inside the table cells.
+        <?{ !($*IN-TWIKI-TABLE && ~$/ ~~ /^ '|'/) }>
     }
 
     token signature-date {
@@ -772,14 +780,14 @@ class TWiki::Header {
 }
 
 class TWiki::TableRow {
-    has Str @.cells;
+    has @.cells;
 
     method gist() {
-        "{ self.^name }({ join(' | ', @.cells) })"
+        "{ self.^name }({ join(' | ', @.cells».gist) })"
     }
 
     method to-adoc() {
-        '|' ~ join '|', @.cells
+        '|' ~ join '|', @.cells».to-adoc
     }
 }
 
@@ -1250,9 +1258,19 @@ class TWiki::Actions {
     }
 
     method table-row($/) {
-        make TWiki::TableRow.new(
-            cells => $/<cell>».Str
-        );
+        my @cells;
+        for $<cell> -> $cell {
+            my $cell-contents = $cell<text-span>;
+
+            # We still must have something in the cell even if it's empty.
+            @cells.append: twiki-text(
+                $cell-contents
+                    ?? $cell-contents.ast
+                    !! TWiki::PlainText.new('')
+            )
+        }
+
+        make TWiki::TableRow.new(:@cells);
     }
 
     method table($/) {
