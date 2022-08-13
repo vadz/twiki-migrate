@@ -809,7 +809,7 @@ class TWiki::Table {
         }
 
         qq:to/END/;
-        [cols="{ $headers-attr }{ join ',', '1' xx $num-columns }"]
+        [{ $headers-attr }cols="{ join ',', '1' xx $num-columns }"]
         |===
         { $headers-row }{ join "\n", @.rows».to-adoc }
         |===
