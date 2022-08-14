@@ -122,7 +122,9 @@ grammar TWiki::Grammar {
         <list-space-indent: $level> || <list-tab-indent: $level>
     }
 
-    # Also, just <...>**$level doesn't work, so use a code block.
+    # Using <...>**$level would require <!before> to ensure that we get
+    # exactly the needed number of spaces or TABs, which is slower than using
+    # a code block, so use the latter instead.
     token list-space-indent(Int $level) {
         '   '+ <?{ $/.chars div 3 == $level }>
     }
