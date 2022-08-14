@@ -532,10 +532,10 @@ class TWiki::Verbatim {
     }
 
     method to-adoc() {
-        # Always insert a new line before the start of a block, but don't add
-        # extra new lines otherwise, as the text already (may) contain(s) them.
+        # When we're inside a list, we need to make the block part of the
+        # list, otherwise we just need to separate it from the preceding text.
         qq:to/END/;
-
+        { $*TWIKI-LIST-LEVEL ?? "\n+" !! '' }
         ....
         $.text
         ....
@@ -762,6 +762,9 @@ class TWiki::List {
     }
 
     method to-adoc(Int $level = 0) {
+        $*TWIKI-LIST-LEVEL += 1;
+        LEAVE $*TWIKI-LIST-LEVEL -= 1;
+
         @.items».to-adoc($level + 1).join("\n");
     }
 }
@@ -942,6 +945,8 @@ class TWiki::Page {
     }
 
     method to-adoc() {
+        my Int $*TWIKI-LIST-LEVEL = 0;
+
         my $doc = $.metainfo.to-adoc;
         $doc ~= ":toc:\n" if $.toc;
 
