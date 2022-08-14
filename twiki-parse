@@ -440,11 +440,9 @@ grammar TWiki::Grammar {
     # Also allow "*" at the beginning of the line because there is wrong TWiki
     # markup using it -- this is not rendered correctly by it, but we still
     # have to accept it, if only as plain text.
-    #
-    # TODO: exclude ! and [ too when links are supported.
     token normal-word {
         [
-        || <-[<*=\n]> <[\w] + [! \[ \] . _ *]>*
+        || <-[<*=\n]> <[\w] + [. _ *]>*
         || <!wb> [ '=' || '*' || '<=' || '>=' || '>' ]
         || <!wb> '<' <!before '/'>
         || <wb> '='
