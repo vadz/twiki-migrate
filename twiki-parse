@@ -74,7 +74,7 @@ grammar TWiki::Grammar {
             # We have to use "|" here because separators and headers start in
             # the same way.
             || [ <separator> | <header> ]
-            || <.signature>
+            || <signature>
             || <block-image>
             || <list-items>
             || <table>
@@ -464,22 +464,23 @@ grammar TWiki::Grammar {
     }
 
     token signature {
-        ^^ '-- Main.'
+        ^^
         [
-            || $<author-in-signature>=[\w+] ' - '
+            '-- Main.' $<author>=[\w+] ' - '
+            $<action>=
             [
-                || 'last update '
-                || 'Created ' <.signature-date> ' - ' [ 'Updated ' || 'Last modified ' ]
+                || 'Created '
+                || 'Last modified '
+                || 'Updated '
             ]?
-            [ <.signature-date> || <.signature-date-ISO> ]
-            [
-                || ' <br/>'
-                || ' -- Main.' \N+
-                || ' - ' \N+
-            ]?
-            <.ws>
-            || { die "Incorrect signature line syntax at { $/.pos() }" }
-        ]
+            $<date>=[ <.signature-date> || <.signature-date-ISO> ]
+        ]+ % ' '
+        # Some signature lines have various junk at the end.
+        [
+            || ' - ' $<comment>=\N+
+            || ' <br/>'
+            || \h+
+        ]?
     }
 
     token attachment {
@@ -688,6 +689,31 @@ class TWiki::InlineImage is TWiki::Image {
         return self.adoc-todo-icon if self.is-todo-icon;
 
         "image:{ $.src }[{ self.attrs }]"
+    }
+}
+
+class TWiki::Signature {
+    has Str @.authors;
+    has Str @.actions;
+    has Str @.dates;
+    has Str $.comment;
+
+    method gist() {
+        "{ self.^name }({ @.authors.join(', ') })"
+    }
+
+    method to-adoc() {
+        # We could put this information into the document properties, but it
+        # seems better to just show it here in the same format as TWiki does.
+        my Str $sig = "---\n";
+
+        for @.authors Z @.actions Z @.dates -> [$author, $action, $date] {
+            $sig ~= "\n- $author {$action || 'Edited '}$date"
+        }
+
+        $sig ~= " ($.comment)" if $.comment;
+
+        $sig
     }
 }
 
@@ -1059,6 +1085,15 @@ class TWiki::Actions {
 
     method metavar($/) {
         make ~$/<name> => ~$/<value>;
+    }
+
+    method signature($/) {
+        make TWiki::Signature.new(
+            authors => $<author>».Str,
+            actions => $<action>».Str,
+            dates   => $<date>».Str,
+            comment => $<comment> ?? ~$<comment> !! ''
+        );
     }
 
     method attachment($/) {
