@@ -865,8 +865,9 @@ class TWiki::Table {
 
     method gist() {
         chomp qq:to/END/;
-        { self.^name }(
-        { indent(join(' | ', @.headers)) }
+        { self.^name }({ "\n" ~
+            indent("Headers: " ~ join(' | ', @.headers)) if @.headers
+        }
         { indent(join("\n", @.rows».gist)) }
         )
         END
@@ -879,7 +880,7 @@ class TWiki::Table {
             $headers-attr = '%header,';
             $headers-row = '|' ~ join('|', @.headers) ~ "\n";
         } else {
-            $num-columns = @.rows[0].elems;
+            $num-columns = @.rows[0].cells.elems;
             $headers-attr = '';
             $headers-row = '';
         }
